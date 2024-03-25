@@ -91,7 +91,7 @@ vim.g.mapleader = ' '
 vim.g.maplocalleader = ' '
 
 -- Set to true if you have a Nerd Font installed and selected in the terminal
-vim.g.have_nerd_font = false
+vim.g.have_nerd_font = true
 
 -- [[ Setting options ]]
 -- See `:help vim.o`
@@ -104,8 +104,8 @@ vim.o.number = true
 --  Experiment for yourself to see if you like it!
 -- vim.o.relativenumber = true
 
--- Enable mouse mode, can be useful for resizing splits for example!
-vim.o.mouse = 'a'
+-- Disable mouse mode
+vim.o.mouse = ''
 
 -- Don't show the mode, since it's already in the status line
 vim.o.showmode = false
@@ -407,6 +407,24 @@ require('lazy').setup({
         -- You can put your default mappings / updates / etc. in here
         --  All the info you're looking for is in `:help telescope.setup()`
         --
+
+        defaults = {
+          layout_strategy = 'flex', -- "bottom_pane", "horizontal", "vertical", "center"
+          layout_config = {
+            horizontal = {
+              -- prompt_position = "top",
+              -- mirror = false,
+              width = 0.55,
+              height = 0.55,
+            },
+            vertical = {
+              -- prompt_position = "top",
+              -- mirror = true,
+              width = 0.55,
+              height = 0.55,
+            },
+          },
+        },
         -- defaults = {
         --   mappings = {
         --     i = { ['<c-enter>'] = 'to_fuzzy_refine' },
@@ -435,7 +453,8 @@ require('lazy').setup({
       vim.keymap.set('n', '<leader>sd', builtin.diagnostics, { desc = '[S]earch [D]iagnostics' })
       vim.keymap.set('n', '<leader>sr', builtin.resume, { desc = '[S]earch [R]esume' })
       vim.keymap.set('n', '<leader>s.', builtin.oldfiles, { desc = '[S]earch Recent Files ("." for repeat)' })
-      vim.keymap.set('n', '<leader><leader>', builtin.buffers, { desc = '[ ] Find existing buffers' })
+      vim.keymap.set('n', '<leader>sb', builtin.buffers, { desc = '[ ] Find existing buffers' })
+      vim.keymap.set('n', '<leader><leader>', builtin.live_grep, { desc = '[S]earch by [G]rep' })
 
       -- Slightly advanced example of overriding default behavior and theme
       vim.keymap.set('n', '<leader>/', function()
@@ -451,7 +470,7 @@ require('lazy').setup({
       vim.keymap.set('n', '<leader>s/', function()
         builtin.live_grep {
           grep_open_files = true,
-          prompt_title = 'Live Grep in Open Files',
+         prompt_title = 'Live Grep in Open Files',
         }
       end, { desc = '[S]earch [/] in Open Files' })
 
@@ -698,6 +717,28 @@ require('lazy').setup({
             },
           },
         },
+
+        perlnavigator = {
+          cmd = { "perlnavigator" },
+          settings = {
+            perlnavigator = {
+                perlPath = 'perl',
+                enableWarnings = true,
+                perlcriticEnabled = true,
+                perlcriticProfile = '',
+                perltidyProfile = '',
+            }
+          }
+        },
+
+        perlpls = {
+          settings = {
+            perl = {
+              perlcritic = { enabled = true },
+            },
+          },
+        },
+
       }
 
       -- Ensure the servers and tools above are installed
@@ -717,22 +758,28 @@ require('lazy').setup({
       vim.list_extend(ensure_installed, {
         'stylua', -- Used to format Lua code
       })
+      for i = #ensure_installed, 1, -1 do
+        if ensure_installed[i] == "perlpls" then
+          table.remove(ensure_installed, i)
+        end
+        if ensure_installed[i] == "perlnavigator" then
+          table.remove(ensure_installed, i)
+        end
+      end
+
       require('mason-tool-installer').setup { ensure_installed = ensure_installed }
 
       require('mason-lspconfig').setup {
         ensure_installed = {}, -- explicitly set to an empty table (Kickstart populates installs via mason-tool-installer)
-        automatic_installation = false,
-        handlers = {
-          function(server_name)
-            local server = servers[server_name] or {}
-            -- This handles overriding only values explicitly passed
-            -- by the server configuration above. Useful when disabling
-            -- certain features of an LSP (for example, turning off formatting for ts_ls)
-            server.capabilities = vim.tbl_deep_extend('force', {}, capabilities, server.capabilities or {})
-            require('lspconfig')[server_name].setup(server)
-          end,
-        },
+        automatic_enable = true,
       }
+
+      vim.lsp.config("perlpls", servers["perlpls"])
+      vim.lsp.enable("perlpls")
+
+      -- vim.lsp.config("perlnavigator", servers["perlnavigator"])
+      -- vim.lsp.enable("perlnavigator")
+
     end,
   },
 
@@ -768,6 +815,7 @@ require('lazy').setup({
       end,
       formatters_by_ft = {
         lua = { 'stylua' },
+        perl = { 'perltidy' },
         -- Conform can also run multiple formatters sequentially
         -- python = { "isort", "black" },
         --
@@ -799,12 +847,12 @@ require('lazy').setup({
           -- `friendly-snippets` contains a variety of premade snippets.
           --    See the README about individual language/framework/plugin snippets:
           --    https://github.com/rafamadriz/friendly-snippets
-          -- {
-          --   'rafamadriz/friendly-snippets',
-          --   config = function()
-          --     require('luasnip.loaders.from_vscode').lazy_load()
-          --   end,
-          -- },
+          {
+            'rafamadriz/friendly-snippets',
+            config = function()
+              require('luasnip.loaders.from_vscode').lazy_load()
+            end,
+          },
         },
         opts = {},
       },
@@ -944,7 +992,7 @@ require('lazy').setup({
     main = 'nvim-treesitter.configs', -- Sets main module to use for opts
     -- [[ Configure Treesitter ]] See `:help nvim-treesitter`
     opts = {
-      ensure_installed = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc' },
+      ensure_installed = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc', 'perl' },
       -- Autoinstall languages that are not installed
       auto_install = true,
       highlight = {
@@ -984,7 +1032,7 @@ require('lazy').setup({
   --    This is the easiest way to modularize your config.
   --
   --  Uncomment the following line and add your plugins to `lua/custom/plugins/*.lua` to get going.
-  -- { import = 'custom.plugins' },
+  { import = 'custom.plugins' },
   --
   -- For additional information with loading, sourcing and examples see `:help lazy.nvim-🔌-plugin-spec`
   -- Or use telescope!
@@ -1011,6 +1059,9 @@ require('lazy').setup({
     },
   },
 })
+
+require("custom.init")
+
 
 -- The line beneath this is called `modeline`. See `:help modeline`
 -- vim: ts=2 sts=2 sw=2 et
