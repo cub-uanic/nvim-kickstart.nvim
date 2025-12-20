@@ -1,3 +1,6 @@
+-- vim: ts=2 sts=2 sw=2 et
+--
+
 return {
   'akinsho/toggleterm.nvim',
   version = '*',
@@ -8,7 +11,7 @@ return {
   },
   opts = {
     open_mapping = [[<c-\>]],
-    direction = 'float', -- "horizontal" / "vertical" / "tab" / "float"
+    direction = 'horizontal', -- "horizontal" / "vertical" / "tab" / "float"
     shade_terminals = true,
     persist_size = true,
   },
