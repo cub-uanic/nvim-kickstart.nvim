@@ -3,47 +3,64 @@
 -- Sessions: persistence.nvim (аналог xolox/vim-session “по-проектно”)
 --
 return {
-  "folke/persistence.nvim",
-  event = "BufReadPre", -- чтобы модуль был доступен достаточно рано, но без лишней нагрузки
+  'folke/persistence.nvim',
+  event = 'VimEnter', -- гарантированно доступен к моменту автозагрузки
   opts = {
-    -- defaults are fine; tune if you want:
-    -- dir = vim.fn.stdpath("state") .. "/sessions/",
-    need = 1, -- минимум файловых буферов для автосейва (0 = всегда)
-    -- branch = true, -- если хочешь отдельные сессии по git-веткам
+    need = 1,
   },
   config = function(_, opts)
-    require("persistence").setup(opts)
+    local ok, persistence = pcall(require, 'persistence')
+    if not ok then
+      return
+    end
+    persistence.setup(opts)
 
-    local group = vim.api.nvim_create_augroup("CustomPersistence", { clear = true })
+    local group = vim.api.nvim_create_augroup('CustomPersistence', { clear = true })
 
-    -- Автозагрузка сессии для текущего каталога при старте,
-    -- но только если Neovim запущен без аргументов (nvim . / nvim)
-    -- и только когда lazy.nvim уже закончил старт (чтобы не было конфликтов с UI).
-    vim.api.nvim_create_autocmd("User", {
+    local function should_autoload()
+      -- если передали файлы аргументами — не лезем с сессией
+      if vim.fn.argc() ~= 0 then
+        return false
+      end
+
+      -- если nvim стартанул, читая из stdin (например: cat file | nvim -)
+      -- в этом случае тоже не надо грузить сессию
+      if vim.fn.exists 'g:started_with_stdin' == 1 and vim.g.started_with_stdin then
+        return false
+      end
+
+      if vim.o.diff then
+        return false
+      end
+
+      return true
+    end
+
+    local function autoload()
+      if not should_autoload() then
+        return
+      end
+
+      -- ВАЖНО: делаем после старта, чтобы не конфликтовать с UI/плагинами
+      vim.schedule(function()
+        -- persistence сам “ничего не сделает”, если сессии нет
+        persistence.load()
+      end)
+    end
+
+    -- 1) Надёжный автозапуск на VimEnter
+    vim.api.nvim_create_autocmd('VimEnter', {
       group = group,
-      pattern = "LazyDone",
-      callback = function()
-        if vim.fn.argc() ~= 0 then
-          return
-        end
-
-        -- Не грузим поверх некоторых спец-режимов/буферов
-        if vim.o.diff then
-          return
-        end
-        local ft = vim.bo.filetype
-        if ft == "lazy" or ft == "TelescopePrompt" then
-          return
-        end
-
-        -- Если для cwd есть сохранённая сессия — загрузим
-        -- (persistence сам корректно “не сделает ничего”, если сессии нет)
-        require("persistence").load()
-      end,
+      callback = autoload,
     })
 
-    -- Автосохранение на выходе persistence.nvim делает сам
-    -- (через свои autocmd после setup/start), отдельно ничего не нужно.
+    -- 2) Доп. страховка: если у тебя реально нужен LazyDone (иногда cwd меняется позже)
+    vim.api.nvim_create_autocmd('User', {
+      group = group,
+      pattern = 'LazyDone',
+      callback = autoload,
+    })
+
+    -- Автосохранение на выходе persistence делает сам после setup()
   end,
 }
-
