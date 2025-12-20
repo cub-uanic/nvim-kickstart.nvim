@@ -161,6 +161,23 @@ vim.filetype.add {
 -- ORIGINAL (.vimrc): vmap , <Leader>
 -- vim.keymap.set({ "n", "v" }, ",", "<Leader>", { remap = true, silent = true })
 
+-- ============================================================================
+-- Global window navigation remap
+-- Replace <C-h/j/k/l> with <C-n/e/o/i>
+-- ============================================================================
+
+-- Normal mode
+vim.keymap.set('n', '<C-n>', '<C-w>h', { desc = 'Window left' })
+vim.keymap.set('n', '<C-e>', '<C-w>j', { desc = 'Window down' })
+vim.keymap.set('n', '<C-o>', '<C-w>k', { desc = 'Window up' })
+vim.keymap.set('n', '<C-i>', '<C-w>l', { desc = 'Window right' })
+
+-- Terminal mode (works with toggleterm.nvim and any :terminal)
+vim.keymap.set('t', '<C-n>', [[<C-\><C-n><C-w>h]], { desc = 'Terminal window left' })
+vim.keymap.set('t', '<C-e>', [[<C-\><C-n><C-w>j]], { desc = 'Terminal window down' })
+vim.keymap.set('t', '<C-o>', [[<C-\><C-n><C-w>k]], { desc = 'Terminal window up' })
+vim.keymap.set('t', '<C-i>', [[<C-\><C-n><C-w>l]], { desc = 'Terminal window right' })
+
 -- ----------------------------------------------------------------------------
 -- Helpers (без feedkeys/input): только “чистые” vim.cmd / vim.cmd.normal
 -- ----------------------------------------------------------------------------

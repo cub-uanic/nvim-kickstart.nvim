@@ -51,104 +51,154 @@ do
 end
 
 -- ============================================================================
--- 🧠 Neovim Perl / Web Dev Cheat Sheet (Custom Setup)
+-- 🧠 NVIM HOTKEYS CHEAT SHEET (from this config)
+-- Leader: <Space>
+-- NOTE: Insert-mode completion mappings are customized (see “Completion” below).
 -- ============================================================================
+
+-- ----------------------------------------------------------------------------
+-- Core / UI (kickstart init.lua)
+-- ----------------------------------------------------------------------------
+-- Normal:
+--   <Esc>                 : nohlsearch (clear search highlight)
+--   <leader>q             : open diagnostic quickfix/loclist (vim.diagnostic.setloclist)
 --
--- Telescope (kickstart.nvim)
---   :Telescope live_grep        — поиск по проекту (код, логи, SQL)
---   :Telescope find_files       — поиск файлов
---   :Telescope buffers          — список буферов
+-- Terminal-mode:
+--   <Esc><Esc>            : exit terminal mode to Normal  (<C-\><C-n>)
 --
--- Overseer (tasks / servers / runners)
---   <leader>rr                  — умный запуск текущего файла / проекта:
---                                  * Mojo / Dancer / Catalyst → сервер
---                                  * Test::*, *.t             → prove
---                                  * PSGI / Plack             → plackup
---                                  * не perl (yml/json/etc)   → запуск app entrypoint
---                                  * иначе                    → терминал / notify
---   <leader>oo                  — показать / скрыть окно Overseer
---   <leader>or                  — список задач (Run task)
+-- Window navigation (custom remap):
+--   <C-n>                 : move to window on the left
+--   <C-e>                 : move to window below
+--   <C-o>                 : move to window above
+--   <C-i>                 : move to window on the right
 --
--- ToggleTerm (интерактивные терминалы)
---   <C-\>                       — открыть / закрыть терминал (float)
---   <leader>tt                  — ToggleTerm
---   <leader>t1                  — терминал #1
---   <leader>t2                  — терминал #2
+
+-- ----------------------------------------------------------------------------
+-- Window navigation & moving splits (kickstart init.lua)
+-- ----------------------------------------------------------------------------
+-- Focus window:
+--   <C-h> / <C-j> / <C-k> / <C-l>        : move focus left/down/up/right
 --
--- log-highlight.nvim
---   (без хоткеев)
---   Автоматическая подсветка логов:
---     * уровни (INFO / WARN / ERROR)
---     * timestamps
---   Работает для *.log / filetype=log
+-- Move current window:
+--   <C-S-h> / <C-S-j> / <C-S-k> / <C-S-l>: move split to left/bottom/top/right
+
+-- ----------------------------------------------------------------------------
+-- Telescope (kickstart init.lua)
+-- ----------------------------------------------------------------------------
+--   <leader>sh            : help tags
+--   <leader>sk            : keymaps
+--   <leader>sf            : find files
+--   <leader>ss            : builtin pickers
+--   <leader>sw            : grep string under cursor
+--   <leader>sg            : live grep
+--   <leader>sd            : diagnostics
+--   <leader>sr            : resume last Telescope picker
+--   <leader>s.            : recent files
+--   <leader>sb            : buffers
+--   <leader><leader>      : live grep (same as <leader>sg in this config)
+--   <leader>sn            : search Neovim config files
+
+-- ----------------------------------------------------------------------------
+-- File tree (kickstart: neo-tree)
+-- ----------------------------------------------------------------------------
+--   \                      : NeoTree reveal
+
+-- ----------------------------------------------------------------------------
+-- LSP (kickstart init.lua, inside LspAttach)
+-- ----------------------------------------------------------------------------
+-- (Your kickstart uses the “gr*” family)
+--   grn                   : rename
+--   grr                   : goto references
+--   gri                   : goto implementation
+--   grd                   : goto definition
+--   grD                   : goto declaration
+--   grt                   : goto type definition
+--   gO                    : document symbols
+--   gW                    : workspace symbols
+
+-- ----------------------------------------------------------------------------
+-- Debugging (kickstart: nvim-dap / dap-ui)
+-- ----------------------------------------------------------------------------
+--   <F5>                  : start/continue
+--   <F1>                  : step into
+--   <F2>                  : step over
+--   <F3>                  : step out
+--   <leader>b             : toggle breakpoint
+--   <leader>B             : set conditional breakpoint
+--   <F7>                  : dapui toggle (“see last session result”)
+
+-- ----------------------------------------------------------------------------
+-- Overseer (custom/plugins/overseer.lua)
+-- ----------------------------------------------------------------------------
+--   <leader>oo            : Overseer toggle
+--   <leader>or            : Overseer run task
+--   <leader>rr            : Run current file (smart: Mojo/Dancer/Catalyst/tests/psgi/etc)
+
+-- ----------------------------------------------------------------------------
+-- ToggleTerm (custom/plugins/toggleterm.lua)
+-- ----------------------------------------------------------------------------
+-- Open / close terminal:
+--   <leader>tt            : Toggle terminal
+--   <leader>tg            : Terminal #1
+--   <leader>te            : Terminal #2
 --
--- vim-dadbod / vim-dadbod-ui / vim-dadbod-completion
---   <leader>du                  — DB UI toggle
---   <leader>df                  — найти DB-буфер (DBUIFindBuffer)
---   :DB <dsn>                   — подключение вручную
---   :DBUIToggle                 — DB UI
---   :DBProjectReload            — перечитать DB-конфиг проекта
---                                 (.env, config.yml, config/database.yml)
---   SQL completion              — автоматически в SQL-буферах
+-- Inside terminal:
+--   <Esc><Esc>        : leave terminal-mode → normal-mode
 --
--- vim-test (Perl tests)
---   <leader>tn                  — TestNearest
---   <leader>tf                  — TestFile
---   <leader>ts                  — TestSuite
---   <leader>tl                  — TestLast
---   <leader>tv                  — TestVisit
---   (стратегия: toggleterm)
+-- Notes:
+-- - toggleterm creates a persistent terminal buffer
+-- - closing == hiding, state is preserved
+-- - you freely switch between code and terminal buffers
 --
--- vim-perl
---   (без хоткеев)
---   Улучшенный syntax / indent / folding для Perl
+-- Typical workflow:
+--   <leader>tt        → open terminal
+--   work in shell
+--   <Esc><Esc>        → normal-mode
+--   <C-n/e/o/i>       → jump back to code window
+--   <leader>tt        → return to terminal
+
+-- ----------------------------------------------------------------------------
+-- vim-test (custom/plugins/vim-test.lua)
+-- ----------------------------------------------------------------------------
+--   <leader>tn            : TestNearest
+--   <leader>tf            : TestFile
+--   <leader>ts            : TestSuite
+--   <leader>tl            : TestLast
+--   <leader>tv            : TestVisit
+
+-- ----------------------------------------------------------------------------
+-- Dadbod / DB UI (custom/plugins/dadbod.lua + custom/db_project_dadbod.lua)
+-- ----------------------------------------------------------------------------
+-- Commands:
+--   :DB <dsn>             : connect (manual)
+--   :DBUI / :DBUIToggle   : DB UI
+--   :DBProjectReload      : (custom) reload project DB config (.env / config.yml / etc)
 --
--- ============================================================================
--- 🧠 Neovim Autocompletion Cheat Sheet
--- ============================================================================
+-- Completion:
+--   vim-dadbod-completion is enabled for SQL filetypes (sql/mysql/plsql).
+
+-- ----------------------------------------------------------------------------
+-- Completion (nvim-cmp + LuaSnip)  [YOUR UPDATED MAPPINGS]
+-- ----------------------------------------------------------------------------
+-- Insert-mode (when completion menu is visible):
+--   <C-Space>             : open completion menu
+--   <C-t>                 : open completion menu (same as <C-Space>)
+--   <C-g>                 : abort/close completion menu
 --
--- nvim-cmp (основной автокомплит)
+--   <C-u>                 : select next completion item
+--   <C-f>                 : select previous completion item
 --
---   <C-Space>                  — вручную открыть меню completion
---   <C-e>                      — закрыть меню completion
---   <CR>                       — подтвердить выбранный вариант
---                                 (Insert → Replace, как в kickstart)
+--   <CR>                  : confirm selection (select=true)
+--   <Tab>                 : confirm selection if menu visible, else normal Tab
 --
--- Навигация по списку completion
---   <C-n>                      — следующий элемент
---   <C-p>                      — предыдущий элемент
---
--- Snippets (LuaSnip, если включён в kickstart)
---   <Tab>                      — перейти к следующему placeholder’у сниппета
---   <S-Tab>                    — перейти к предыдущему placeholder’у
---   (работает, если активен snippet jump)
---
--- Источники completion (автоматически)
---
---   LSP                        — код, символы, методы (Perl LSP, если подключён)
---   buffer                     — слова из текущего буфера
---   path                       — пути к файлам
---   luasnip                    — сниппеты
---
--- SQL / DB (vim-dadbod-completion)
---
---   completion в SQL-буферах:
---     * имена таблиц
---     * колонки
---     * схемы
---   Источник активен, если:
---     - открыт SQL-буфер
---     - есть активное dadbod-подключение (:DBUI / vim.g.dbs)
---
---   :DBProjectReload           — перечитать DB-конфиг проекта
---                                 (.env / config.yml / config/database.yml)
---
--- Полезно помнить
---
---   completion появляется автоматически при вводе
---   <C-Space> — всегда принудительно показывает список
---   если completion "пропал":
---     :LspInfo                 — проверить LSP
---     :CmpStatus               — статус nvim-cmp (если доступно)
---
+-- Snippet jumping (LuaSnip):
+--   <C-n>                 : jump forward in snippet (if jumpable)
+--   <C-e>                 : jump backward in snippet (if jumpable)
+
+-- ----------------------------------------------------------------------------
+-- Misc from custom/vimrc-cub.lua
+-- ----------------------------------------------------------------------------
+-- Normal:
+--   [[                    : search backwards for Perl “sub …” (no desc)
+--   ]]                    : search forwards for Perl “sub …” (no desc)
 -- ============================================================================
