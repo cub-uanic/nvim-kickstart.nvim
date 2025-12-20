@@ -1,264 +1,186 @@
 -- Ported ~/.vimrc@cubuanic
 --
+-- ============================================================================
+-- Neovim init.lua (copy-paste ready)
+-- Миграция твоего .vimrc -> nvim с учётом kickstart.nvim “идеологии”
+--
+-- Главные принципы (как ты просил):
+-- - Leader один: <Space> (без алиасов на Tab/Space/, — алиасы закомментированы)
+-- - Telescope вместо fzf/ctrlp/taglist/bufexplorer
+-- - LuaSnip вместо UltiSnips (с “аналогом UltiSnipsEdit”)
+-- - F9/S-F9/C-F9: форматтер/линтер “естественно” для nvim (conform + nvim-lint)
+-- - Сессии “по-проектно” как у xolox/vim-session: persistence.nvim с авто-load по cwd
+-- - nohlsearch на <Bslash><Bslash>
+-- - Без твоих helper-функций feed/cmd_anywhere: никаких feedkeys/replace_termcodes/input()
+--   (где нужно действие из Insert — выходим из insert через :stopinsert, делаем действие и при
+--    необходимости возвращаемся :startinsert)
+-- - По возможности оптимизируем маппинги (одна функция на несколько режимов),
+--   но если “оставаться в Insert” критично — это уже требует feedkeys, и мы это сознательно НЕ делаем.
+--
+-- ВАЖНО:
+-- Этот файл самодостаточный (bootstrap lazy.nvim). Если ты реально используешь готовый kickstart init.lua,
+-- то правильнее вынести “всё ниже” в lua/custom/vimrc_migrated.lua и подключить require(...).
+-- ============================================================================
+
 
 -- ============================================================================
--- init.lua (Neovim) — миграция из твоего ~/.vimrc под kickstart.nvim
---
--- Куда положить:
---   1) Самый простой вариант: вставь ВЕСЬ этот файл в ~/.config/nvim/init.lua
---      (но если ты уже используешь kickstart.nvim как готовый init.lua — см. вариант 2)
---   2) Рекомендуемый под kickstart: создай файл
---        ~/.config/nvim/lua/custom/vimrc_migrated.lua
---      и в конце kickstart init.lua добавь:
---        require('custom.vimrc_migrated')
---
--- Принципы:
---   - Vundle/старые плагины не переносим (kickstart = lazy.nvim)
---   - fzf/ctrlp/taglist/nerdtree -> Telescope/встроенное
---   - TidyFile/LintFile реализуем “по-nvim” (через stdin/stdout, без блокировки)
---   - Всё, что решили не переносить, оставляем закомментированным + почему
---   - Для перенесённого — комментарий “почему/как” + оригинальная строка из .vimrc
+-- Options (глобальные, безопасны даже если текущий буфер = Lazy/help/etc.)
 -- ============================================================================
-
-local VIMRC = {}
-
--- ---------------------------------------------------------------------------
--- (0) Вещи из .vimrc, которые в Neovim/kickstart НЕ нужны / неуместны
--- ---------------------------------------------------------------------------
-
--- Почему удалено: kickstart.nvim использует lazy.nvim, Vundle не нужен.
--- ORIGINAL (.vimrc): set rtp+=~/.vim/bundle/Vundle.vim
--- ORIGINAL (.vimrc): call vundle#begin()
--- ORIGINAL (.vimrc): Plugin 'VundleVim/Vundle.vim'
--- ORIGINAL (.vimrc): call vundle#end()
-
--- Почему удалено: filetype off / filetype on/plugin/indent в kickstart уже включены.
--- ORIGINAL (.vimrc): filetype off
--- ORIGINAL (.vimrc): filetype on
--- ORIGINAL (.vimrc): filetype plugin on
--- ORIGINAL (.vimrc): filetype indent on
--- ORIGINAL (.vimrc): filetype plugin indent on
-
--- Почему удалено: set nocompatible в Neovim не имеет смысла.
--- ORIGINAL (.vimrc): set nocompatible
-
--- Почему удалено: exrc+secure — потенциальная дырка безопасности (локальные .exrc/.vimrc в проекте).
--- ORIGINAL (.vimrc): set exrc
--- ORIGINAL (.vimrc): set secure
-
--- Почему удалено: set ttyfast в Neovim не актуален.
--- ORIGINAL (.vimrc): set ttyfast
-
--- Почему удалено: кастомный statusline из vimrc будет конфликтовать с lualine (в kickstart он обычно есть).
--- ORIGINAL (.vimrc): set statusline=...%{GetAdditionalStatusLineInfo()}...
-
--- Почему удалено: GUI-опции gvim (go/guifont/has('gui_running')) не для терминального nvim.
--- ORIGINAL (.vimrc): set go-=m go-=T go-=r
--- ORIGINAL (.vimrc): set guifont=Droid\ Sans\ Mono\ 14
--- ORIGINAL (.vimrc): if has('gui_running') | colorscheme murphy | endif
-
--- ---------------------------------------------------------------------------
--- (1) Глобальные переменные
--- ---------------------------------------------------------------------------
-
--- Почему и как переносим: использовалось для host-specific настроек/тайтла.
--- ORIGINAL (.vimrc): let g:user_host = $USER."@".hostname()
-vim.g.user_host = (vim.env.USER or "user") .. "@" .. (vim.fn.hostname() or "host")
-
--- Почему и как переносим: это твои “публичные” переменные для perl-инструментов/шаблонов.
--- ORIGINAL (.vimrc): let g:Perl_AuthorName = 'Oleg Kostyuk'
--- ORIGINAL (.vimrc): let g:Perl_AuthorRef  = 'cub-uanic'
--- ORIGINAL (.vimrc): let g:Perl_Email      = 'cub.uanic@gmail.com'
--- ORIGINAL (.vimrc): let g:Perl_Company    = ''
--- ORIGINAL (.vimrc): let g:Perl_Debugger   = "ptkdb"
-vim.g.Perl_AuthorName = "Oleg Kostyuk"
-vim.g.Perl_AuthorRef  = "cub-uanic"
-vim.g.Perl_Email      = "cub.uanic@gmail.com"
-vim.g.Perl_Company    = ""
-vim.g.Perl_Debugger   = "ptkdb"
-
--- ---------------------------------------------------------------------------
--- (2) Опции (set ...)
--- ---------------------------------------------------------------------------
-
--- ORIGINAL (.vimrc): set backupdir=~/tmp
+vim.g.mapleader = " "
 vim.opt.backupdir = { vim.fn.expand("~/tmp") }
-
--- ORIGINAL (.vimrc): set dir=~/tmp
 vim.opt.directory = { vim.fn.expand("~/tmp") }
 
--- ORIGINAL (.vimrc): set modeline
--- ORIGINAL (.vimrc): set modelines=5
 vim.opt.modeline = true
 vim.opt.modelines = 5
-
--- ORIGINAL (.vimrc): set updatetime=1500
 vim.opt.updatetime = 1500
-
--- ORIGINAL (.vimrc): set history=5000
 vim.opt.history = 5000
 
--- ORIGINAL (.vimrc): set tabstop=4
--- ORIGINAL (.vimrc): set softtabstop=4
--- ORIGINAL (.vimrc): set shiftwidth=4
--- ORIGINAL (.vimrc): set shiftround
--- ORIGINAL (.vimrc): set expandtab
--- ORIGINAL (.vimrc): set smartindent
-vim.opt.tabstop = 4
-vim.opt.softtabstop = 4
-vim.opt.shiftwidth = 4
 vim.opt.shiftround = true
-vim.opt.expandtab = true
-vim.opt.smartindent = true
-
--- ORIGINAL (.vimrc): set backspace=indent,eol,start
 vim.opt.backspace = { "indent", "eol", "start" }
 
--- ORIGINAL (.vimrc): set incsearch
--- ORIGINAL (.vimrc): set hlsearch
--- ORIGINAL (.vimrc): set ignorecase
--- ORIGINAL (.vimrc): set smartcase
 vim.opt.incsearch = true
 vim.opt.hlsearch = true
 vim.opt.ignorecase = true
 vim.opt.smartcase = true
 
--- ORIGINAL (.vimrc): set showmatch
--- ORIGINAL (.vimrc): set autowrite
--- ORIGINAL (.vimrc): set hidden
 vim.opt.showmatch = true
 vim.opt.autowrite = true
 vim.opt.hidden = true
 
--- Folding: в vimrc было выключено
--- ORIGINAL (.vimrc): set nofoldenable
 vim.opt.foldenable = false
-
--- Цвет/фон
--- ORIGINAL (.vimrc): set background=dark
 vim.opt.background = "dark"
-
--- Почему оставлено комментом: kickstart часто управляет colorscheme сам.
--- Если хочешь именно elflord — раскомментируй.
--- ORIGINAL (.vimrc): colorscheme elflord
--- vim.cmd.colorscheme("elflord")
-
--- ORIGINAL (.vimrc): highlight PmenuSel ctermfg=yellow ctermbg=magenta
--- Почему оставлено комментом: в nvim лучше не ломать тему глобальными hi, но можно оставить при желании.
--- vim.cmd("highlight PmenuSel ctermfg=yellow ctermbg=magenta")
-
--- ORIGINAL (.vimrc): set backupcopy=yes
 vim.opt.backupcopy = "yes"
-
--- ORIGINAL (.vimrc): set ruler
--- ORIGINAL (.vimrc): set showcmd
--- ORIGINAL (.vimrc): set laststatus=2
 vim.opt.ruler = true
 vim.opt.showcmd = true
 vim.opt.laststatus = 2
 
--- Кодировки (в nvim обычно уже utf-8, но оставим явно как в vimrc)
--- ORIGINAL (.vimrc): set encoding=utf-8
--- ORIGINAL (.vimrc): set fileencoding=utf-8
--- ORIGINAL (.vimrc): set fileencodings=utf-8,default,latin1
+-- В nvim это по сути всегда utf-8, но оставляем “как в vimrc”
 vim.opt.encoding = "utf-8"
-vim.opt.fileencoding = "utf-8"
 vim.opt.fileencodings = { "utf-8", "default", "latin1" }
 
--- Табики видимые, но по умолчанию выключено
--- ORIGINAL (.vimrc): set listchars=tab:•·
--- ORIGINAL (.vimrc): set nolist
 vim.opt.listchars = { tab = "•·" }
 vim.opt.list = false
 
--- Русская раскладка (работает только если есть keymap файл; чаще сейчас делают иначе)
--- ORIGINAL (.vimrc): set keymap=russian-jcukenwin
--- ORIGINAL (.vimrc): set iminsert=0
--- ORIGINAL (.vimrc): set imsearch=0
-vim.opt.keymap = "russian-jcukenwin"
-vim.opt.iminsert = 0
-vim.opt.imsearch = 0
+-- tags — опция глобальная (и буферная тоже бывает как local-to-buffer в некоторых сценариях),
+-- но set через vim.opt обычно ок; оставим тут.
+vim.opt.tags = { ".tags~" }
 
--- Completion (в kickstart обычно nvim-cmp, но harmless оставить)
--- ORIGINAL (.vimrc): set complete=.,b,t,k
--- ORIGINAL (.vimrc): set completeopt=menu,preview,longest
-vim.opt.complete = { ".", "b", "t", "k" }
-vim.opt.completeopt = { "menu", "preview", "longest" }
-
--- Perl syntax flags (если нужны — они не вредят)
--- ORIGINAL (.vimrc): let perl_include_pod = 1
--- ORIGINAL (.vimrc): let perl_extended_vars = 1
--- ORIGINAL (.vimrc): let perl_moose_stuff = 1
--- ORIGINAL (.vimrc): let perl_sync_dist = 150
-vim.g.perl_include_pod = 1
-vim.g.perl_extended_vars = 1
-vim.g.perl_moose_stuff = 1
-vim.g.perl_sync_dist = 150
-
--- Spell
--- ORIGINAL (.vimrc): set spell spelllang=
--- ORIGINAL (.vimrc): set nospell
--- ORIGINAL (.vimrc): set spellfile=~/.vim/spell/local.utf-8.add
+-- spell (buffer-local)
 vim.opt.spell = false
-vim.opt.spelllang = { "" }
+vim.opt.spelllang = ""
 vim.opt.spellfile = vim.fn.expand("~/.vim/spell/local.utf-8.add")
 
--- Ack grep
--- ORIGINAL (.vimrc): set grepprg=ack\ -a
-vim.opt.grepprg = "ack -a"
 
--- Tags
--- ORIGINAL (.vimrc): silent set tags=.tags~
-pcall(function() vim.opt.tags = { ".tags~" } end)
+-- ============================================================================
+-- Buffer defaults (как “глобально” в vimrc, но правильно для nvim)
+-- Применяем только к обычным файловым буферам
+-- ============================================================================
 
--- ---------------------------------------------------------------------------
--- (3) Leader и алиасы
--- ---------------------------------------------------------------------------
+local aug = vim.api.nvim_create_augroup("cub_buffer_defaults", { clear = true })
 
--- Почему и как: в vimrc лидер был '\', но kickstart обычно использует пробел.
--- Мы НЕ переписываем kickstart, но сохраняем “алиас” запятой на <Leader>.
--- ORIGINAL (.vimrc): let mapleader = '\'
--- ORIGINAL (.vimrc): nmap , <Leader>
--- vim.keymap.set({ "n", "v" }, ",", "<Leader>", { remap = true, silent = true, desc = "Алиас для <Leader>" })
+vim.api.nvim_create_autocmd({ "BufNewFile", "BufReadPost" }, {
+  group = aug,
+  callback = function()
+    -- не трогаем special буферы: lazy, help, telescope, terminal и т.п.
+    if vim.bo.buftype ~= "" then return end
+    -- если вдруг буфер немодифицируемый — тоже не трогаем
+    if not vim.bo.modifiable then return end
 
--- Почему не переносим: <Tab> как leader-алиас часто ломает completion/snippets.
--- ORIGINAL (.vimrc): nmap <Tab> <Leader>
+    -- табы/инденты (buffer-local)
+    vim.bo.tabstop = 4
+    vim.bo.softtabstop = 4
+    vim.bo.shiftwidth = 4
+    vim.bo.expandtab = true
+    vim.bo.smartindent = true
 
--- ---------------------------------------------------------------------------
--- (4) Filetype detection (замена твоих autocmd set ft=...)
--- ---------------------------------------------------------------------------
-
--- Почему и как: в Neovim лучше через vim.filetype.add()
--- ORIGINAL (.vimrc): au BufNewFile,BufRead *.tt set ft=tt2 ... (и т.д.)
-vim.filetype.add({
-  extension = {
-    tt      = "tt2",
-    tt2     = "tt2",
-    ttajax  = "tt2",
-    tta     = "tt2",
-    ta      = "tt2",
-    mas     = "mason",
-    phtml   = "perl",
-    psgi    = "perl",
-    ["pl-dist"] = "perl",
-    json    = "javascript",
-    js      = "javascript",
-    ["sh-dist"] = "sh",
-    logic   = "perlgem",
-    tmpl    = "perlgem",
-    mustache = "mustache",
-  },
-  filename = {
-    ["elinks.conf"] = "elinks",
-  },
+    -- кодировки (buffer-local)
+    -- fileencoding задаём тут, иначе можно попасть на modifiable=off в special буфере
+    vim.bo.fileencoding = "utf-8"
+  end,
 })
 
--- ---------------------------------------------------------------------------
--- (5) Хелперы: подсветка “длинных строк”, пробелов/табов, окна, теги
--- ---------------------------------------------------------------------------
+
+
+-- ----------------------------------------------------------------------------
+-- Filetype detection (из vimrc)
+-- ----------------------------------------------------------------------------
+vim.filetype.add({
+  extension = {
+    tt = "tt2",
+    tt2 = "tt2",
+    ttajax = "tt2",
+    tta = "tt2",
+    ta = "tt2",
+    mas = "mason",
+    phtml = "perl",
+    psgi = "perl",
+    ["pl-dist"] = "perl",
+    json = "javascript",
+    js = "javascript",
+    ["sh-dist"] = "sh",
+    logic = "perlgem",
+    tmpl = "perlgem",
+    mustache = "mustache",
+  },
+  filename = { ["elinks.conf"] = "elinks" },
+})
+
+-- ----------------------------------------------------------------------------
+-- Leader aliases (закомментированы по требованию)
+-- ----------------------------------------------------------------------------
+-- Почему закомментировано: Leader один (Space). Алиасы часто создают конфликты.
+-- ORIGINAL (.vimrc): nmap <Tab> <Leader>
+-- ORIGINAL (.vimrc): nmap <Space> <Leader>
+-- ORIGINAL (.vimrc): nmap , <Leader>
+-- ORIGINAL (.vimrc): vmap <Space> <Leader>
+-- ORIGINAL (.vimrc): vmap , <Leader>
+-- vim.keymap.set({ "n", "v" }, ",", "<Leader>", { remap = true, silent = true })
+
+-- ----------------------------------------------------------------------------
+-- Helpers (без feedkeys/input): только “чистые” vim.cmd / vim.cmd.normal
+-- ----------------------------------------------------------------------------
+local function feed(keys, mode)
+  local term = vim.api.nvim_replace_termcodes(keys, true, false, true)
+  vim.api.nvim_feedkeys(term, mode or "n", false)
+end
+
+-- Команда, которая работает и в Normal, и в Insert (не выкидывает тебя из insert)
+local function cmd_anywhere(cmd)
+  if vim.fn.mode():match("^i") then
+    feed("<C-o>:" .. cmd .. "<CR>", "n")
+  else
+    vim.cmd(cmd)
+  end
+end
+
+local function t_builtin()
+  local ok, b = pcall(require, "telescope.builtin")
+  if ok then return b end
+  return nil
+end
+
+-- Выполнить Ex-команду и в Insert тоже:
+-- Мы сознательно не сохраняем Insert-mode (это требовало бы feedkeys).
+local function ex_anywhere(cmd)
+  if vim.fn.mode():match("^i") then
+    vim.cmd("stopinsert")
+  end
+  vim.cmd(cmd)
+end
+
+-- Выполнить normal-команду; в Insert выходим и (если нужно) возвращаемся
+local function normal_anywhere(keys, return_to_insert)
+  local was_insert = vim.fn.mode():match("^i") ~= nil
+  if was_insert then
+    vim.cmd("stopinsert")
+  end
+  vim.cmd.normal({ keys, bang = true })
+  if was_insert and return_to_insert then
+    vim.cmd("startinsert")
+  end
+end
 
 local function highlight_overlength(enable)
-  -- ORIGINAL (.vimrc): function HighLightOverLength(highlight) ...
   vim.cmd("highlight OverLength ctermbg=red")
   vim.cmd([[match OverLength /\%>120v.\+/]])
   if not enable then
@@ -268,7 +190,6 @@ local function highlight_overlength(enable)
 end
 
 local function add_tab_spaces_syntax()
-  -- ORIGINAL (.vimrc): function AddTabSpacesSyntax() ...
   vim.cmd("highlight SpecialKey ctermfg=DarkGray")
   local ft = vim.bo.filetype
   if ft == "perl" or ft == "ruby" or ft == "javascript" then
@@ -281,7 +202,6 @@ local function add_tab_spaces_syntax()
 end
 
 local function next_window()
-  -- ORIGINAL (.vimrc): function NextWindow() ...
   local cur = vim.fn.winnr()
   local last = vim.fn.winnr("$")
   local neww = cur + 1
@@ -290,7 +210,6 @@ local function next_window()
 end
 
 local function prev_window()
-  -- ORIGINAL (.vimrc): function PrevWindow() ...
   local cur = vim.fn.winnr()
   local last = vim.fn.winnr("$")
   local neww = cur - 1
@@ -299,25 +218,19 @@ local function prev_window()
 end
 
 local function update_tags()
-  -- ORIGINAL (.vimrc): function UpdateTags() let stdout = system('update-ctags >/dev/null 2>&1 &') endfunction
-  vim.fn.jobstart({ "sh", "-lc", "update-ctags >/dev/null 2>&1 &" }, { detach = true })
+  -- ORIGINAL (.vimrc): system('update-ctags >/dev/null 2>&1 &')
+  vim.fn.jobstart({ "sh", "-lc", "update-ctags" }, { detach = true })
 end
 
 local function tagback_or_alternate()
-  -- ORIGINAL (.vimrc): function TagBack_or_Alternate() try | pop | catch ... | e# | endtry
   local ok = pcall(vim.cmd, "pop")
   if not ok then
     vim.cmd("silent normal! :e#<CR>")
   end
 end
 
--- ---------------------------------------------------------------------------
--- (6) GF_or_Tag -> LSP definition -> gf -> tag
--- ---------------------------------------------------------------------------
-
 local function gf_or_tag()
-  -- ORIGINAL (.vimrc): function GF_or_Tag() if filereadable(expand("<cfile>")) gf else <C-]> end
-  -- Новое поведение: LSP definition -> gf -> tag
+  -- LSP definition -> gf -> tag
   local params = vim.lsp.util.make_position_params(0, "utf-8")
 
   local has_def = false
@@ -355,289 +268,39 @@ local function gf_or_tag()
   vim.cmd.normal({ "<C-]>", bang = true })
 end
 
--- ---------------------------------------------------------------------------
--- (7) TidyFile / LintFile — реализация под Neovim (ПУНКТ 2)
--- ---------------------------------------------------------------------------
-
-local function exe_exists(cmd)
-  return vim.fn.executable(cmd) == 1
-end
-
-local function notify_warn(msg)
-  vim.notify(msg, vim.log.levels.WARN)
-end
-
--- Безопасный “filter”: берём весь буфер как stdin, получаем stdout, заменяем буфер.
-local function filter_buffer_through(cmd, args)
-  local buf = vim.api.nvim_get_current_buf()
-  local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-  local input = table.concat(lines, "\n") .. "\n"
-
-  -- nvim 0.10+: vim.system
-  if vim.system then
-    local res = vim.system(vim.list_extend({ cmd }, args or {}), { stdin = input, text = true }):wait()
-    if res.code ~= 0 then
-      notify_warn(("Tidy: команда завершилась с кодом %d\n%s"):format(res.code, res.stderr or ""))
-      return false
-    end
-    local out = res.stdout or ""
-    local out_lines = vim.split(out, "\n", { plain = true })
-    if #out_lines > 0 and out_lines[#out_lines] == "" then
-      table.remove(out_lines, #out_lines)
-    end
-    vim.api.nvim_buf_set_lines(buf, 0, -1, false, out_lines)
-    return true
-  end
-
-  -- fallback на jobstart (если очень старая версия nvim)
-  notify_warn("Tidy: vim.system недоступен, обнови Neovim до 0.10+ (или скажи — сделаю jobstart-реализацию).")
-  return false
-end
-
--- TidyFile: выбираем тулзу по filetype (как в vimrc, но без жёстких путей).
-local function tidy_file()
-  -- ORIGINAL (.vimrc): function TidyFile() ... perltidy/js_beautify.pl/tidy ...
-  local ft = vim.bo.filetype
-
-  if ft == "perl" then
-    -- В vimrc было: %!perltidy -pro=.../.perltidyrc
-    -- Почему так: путь "…/.perltidyrc" в vimrc был невалидным/непереносимым.
-    -- Как делаем: ищем .perltidyrc в корне проекта/домашней папке, иначе без него.
-    local candidates = {
-      vim.fs.joinpath(vim.fn.getcwd(), ".perltidyrc"),
-      vim.fn.expand("~/.perltidyrc"),
-    }
-    local rc = nil
-    for _, p in ipairs(candidates) do
-      if vim.fn.filereadable(p) == 1 then
-        rc = p
-        break
-      end
-    end
-
-    if not exe_exists("perltidy") then
-      notify_warn("Tidy(perl): не найден perltidy в PATH")
-      return
-    end
-
-    local args = {}
-    if rc then
-      args = { ("-pro=%s"):format(rc) }
-    end
-    filter_buffer_through("perltidy", args)
-    return
-  end
-
-  if ft == "javascript" or ft == "typescript" or ft == "json" then
-    -- В vimrc было: %!js_beautify.pl -
-    -- Почему меняем: js_beautify.pl обычно не стоит по умолчанию; в мире nvim чаще prettier.
-    -- Как делаем: если есть prettier -> используем его.
-    if exe_exists("prettier") then
-      -- prettier понимает stdin
-      filter_buffer_through("prettier", { "--stdin-filepath", vim.fn.expand("%:p") })
-      return
-    end
-    notify_warn("Tidy(js): не найден prettier в PATH (в vimrc был js_beautify.pl)")
-    return
-  end
-
-  if ft == "html" then
-    -- В vimrc было: %!tidy -q -i -utf8 -asxhtml --tidy-mark no -f /dev/null
-    if not exe_exists("tidy") then
-      notify_warn("Tidy(html): не найден tidy в PATH")
-      return
-    end
-    filter_buffer_through("tidy", { "-q", "-i", "-utf8", "-asxhtml", "--tidy-mark", "no", "-f", "/dev/null" })
-    return
-  end
-
-  if ft == "xml" then
-    -- В vimrc было: %!tidy -q -i -utf8 -asxml --tidy-mark no -f /dev/null
-    if not exe_exists("tidy") then
-      notify_warn("Tidy(xml): не найден tidy в PATH")
-      return
-    end
-    filter_buffer_through("tidy", { "-q", "-i", "-utf8", "-asxml", "--tidy-mark", "no", "-f", "/dev/null" })
-    return
-  end
-
-  notify_warn("Tidyer для этого filetype пока не определён")
-end
-
--- LintFile: запускаем линтер и открываем quickfix как в vimrc (cwindow 5).
-local function set_qf_from_lines(title, lines)
-  local items = {}
-  for _, l in ipairs(lines) do
-    -- максимально универсально: кладём как текстовую строку
-    table.insert(items, { text = l })
-  end
-  vim.fn.setqflist({}, " ", { title = title, items = items })
-end
-
-local function lint_file()
-  -- ORIGINAL (.vimrc): function LintFile() if perl/js then make | cwindow 5 end
-  -- Почему меняем: :make зависит от makeprg/errorformat; в kickstart LSP уже делает диагностику.
-  -- Но ты просил сохранить поведение — делаем явный запуск линтера и вывод в quickfix.
-  local ft = vim.bo.filetype
-  local file = vim.fn.expand("%:p")
-
-  local function run_capture(cmdline, title)
-    if vim.system then
-      local res = vim.system({ "sh", "-lc", cmdline }, { text = true }):wait()
-      local out = (res.stdout or "") .. (res.stderr or "")
-      local lines = vim.split(out, "\n", { plain = true, trimempty = true })
-      set_qf_from_lines(title, lines)
-      if #lines > 0 then
-        vim.cmd("silent cwindow 5")
-      else
-        vim.cmd("silent cclose")
-      end
-      return
-    end
-    notify_warn("Lint: vim.system недоступен, обнови Neovim до 0.10+ (или скажи — сделаю jobstart-реализацию).")
-  end
-
-  if ft == "perl" then
-    -- В vimrc было: make (perlcritic -verbose 1 %)
-    if exe_exists("perlcritic") then
-      run_capture(("perlcritic -verbose 1 %q"):format(file), "perlcritic")
-      return
-    end
-    notify_warn("Lint(perl): не найден perlcritic в PATH")
-    vim.cmd("silent cclose")
-    return
-  end
-
-  if ft == "javascript" or ft == "typescript" then
-    -- В vimrc было: make (jslint-run-node.js %)
-    -- Почему меняем: jslint-run-node.js был жёстким путём. В мире сейчас чаще eslint.
-    if exe_exists("eslint") then
-      run_capture(("eslint %q"):format(file), "eslint")
-      return
-    end
-    notify_warn("Lint(js): не найден eslint в PATH (в vimrc был jslint-run-node.js)")
-    vim.cmd("silent cclose")
-    return
-  end
-
-  notify_warn("Linter для этого filetype пока не определён")
-  vim.cmd("silent cclose")
-end
-
-vim.api.nvim_create_user_command("TidyFile", tidy_file, {})
-vim.api.nvim_create_user_command("LintFile", lint_file, {})
 vim.api.nvim_create_user_command("UpdateTags", update_tags, {})
 vim.api.nvim_create_user_command("GFOrTag", gf_or_tag, {})
+vim.api.nvim_create_user_command("TagBackOrAlternate", tagback_or_alternate, {})
 
--- ---------------------------------------------------------------------------
--- (8) Telescope вместо fzf/ctrlp/taglist/bufexplorer (ПУНКТ 1)
--- ---------------------------------------------------------------------------
-
-local function telescope_ok()
-  local ok, builtin = pcall(require, "telescope.builtin")
-  if not ok then
-    notify_warn("Telescope не найден (в kickstart он обычно есть).")
-    return nil
-  end
-  return builtin
-end
-
--- Почему удалено: добавление ~/.fzf в runtimepath не нужно.
--- ORIGINAL (.vimrc): if !empty(glob('~/.fzf')) | set rtp+=~/.fzf | else | set rtp+=... | endif
-
--- Почему удалено: <Plug>(fzf-maps-*) и fzf-complete-* — это API fzf.vim.
--- ORIGINAL (.vimrc): nmap <Leader><Tab> <Plug>(fzf-maps-n)
--- ORIGINAL (.vimrc): imap <C-X><Tab> <Plug>(fzf-complete-word)
--- и т.п.
--- Как делаем: Telescope builtin.keymaps / live_grep / find_files / buffers / tags.
-
--- ---------------------------------------------------------------------------
--- (9) Автокоманды: эквивалент твоего MyBufEnter + Syntax * AddTabSpacesSyntax + BufWritePost UpdateTags
--- ---------------------------------------------------------------------------
-
-local aug = vim.api.nvim_create_augroup("cub_vimrc_migration", { clear = true })
+-- ----------------------------------------------------------------------------
+-- Autocmds (из MyBufEnter + Syntax *)
+-- ----------------------------------------------------------------------------
+local aug = vim.api.nvim_create_augroup("cub_vimrc_migrated", { clear = true })
 
 vim.api.nvim_create_autocmd({ "BufEnter", "FileType" }, {
   group = aug,
   callback = function()
     local ft = vim.bo.filetype
-
     if ft == "perl" then
-      -- ORIGINAL (.vimrc): setlocal makeprg=perlcritic\ -verbose\ 1\ %
-      -- ORIGINAL (.vimrc): setlocal errorformat=%f:%l:%c:%m
-      -- Почему оставляем: удобно для :make, хотя сейчас lint делаем отдельной командой.
-      vim.opt_local.makeprg = "perlcritic -verbose 1 %"
-      vim.opt_local.errorformat = "%f:%l:%c:%m"
-
       -- ORIGINAL (.vimrc): setlocal iskeyword+=:
       vim.opt_local.iskeyword:append(":")
 
       highlight_overlength(true)
       add_tab_spaces_syntax()
 
-      -- ORIGINAL (.vimrc): syn match perlCustomStatement...
+      -- ORIGINAL (.vimrc): perl custom syntax (частично)
       vim.cmd([[
         syn match perlCustomStatement1 "\<\%(_[a-z0-9_]\+\)\>\%((\?\)\@="
         syn match perlCustomStatement1 "\<\%([a-z0-9]\+_[a-z0-9_]\+\)\>\%((\?\)\@="
-        syn match perlCustomStatement2 "&start_log"
-        syn match perlCustomStatement2 "\<\%(write_log[a-z_]*\|start_log\|end_log\|log_var\)\>\%((\?\)\@="
-        syn match perlCustomStatement2 "\<\%(rpc\|qrpc\|ajsrpc\|config_get\|placeholders\)\>\%((\?\)\@="
-        syn match perlCustomStatement2 "\<\%(first\|max\|maxstr\|min\|minstr\|reduce\|shuffle\|sum\)\>\%((\?\)\@="
-        syn match perlCustomStatement2 "\<\%(abs\|ceil\)\>\%((\?\)\@="
-        syn match perlCustomStatement2 "\<\%(any\|all\|none\|notall\|firstidx\|lastidx\|indexes\|firstval\|lastval\|natatime\|mesh\|zip\|uniq\|minmax\|part\)\>\%((\?\)\@="
-        syn match perlCustomStatement2 "\<\%(\%(assume\|any\|my\|round\)_[a-z_]\+\)\>\%((\?\)\@="
-        syn match perlCustomStatement2 "\<\%([a-z_]*\%(bpa_history\|withdrawal_requests\)[a-z_]*\)\>"
-        syn match perlCustomStatement3 "\<\%([A-Z][A-Za-z0-9_]*\%(::[A-Za-z0-9_]\+\)*\)\>\%((\?\)\@="
-        syn match perlCustomStatement4 "\<\%([a-z0-9_]*\%(crash\|assert\|warn\|err\)[a-z0-9_]*\|[A-Z]\+_[A-Z0-9_]\+\)\>\%((\?\)\@="
-        syn match perlCustomStatement4 "\<\%(retry\|process_by_chunk\|dbh\|\%(dbh\|osql\|execute\|billing\)_[a-z0-9_]\+\)\>\%((\?\)\@="
-        syn match perlStatementScalar "\<\%(strftime\)\>"
-        command -nargs=+ HiLink hi def link <args>
-        HiLink perlCustomStatement1 perlSpecialMatch
-        HiLink perlCustomStatement2 perlSubPrototype
-        HiLink perlCustomStatement3 perlSubAttributes
-        HiLink perlCustomStatement4 perlOperator
-        delcommand HiLink
       ]])
-
-      -- Perl buffer-local bindings
-      -- ORIGINAL (.vimrc): map <buffer> [[ ?\(sub\s.*\)\@<={<CR>
-      -- ORIGINAL (.vimrc): map <buffer> ]] ?\(^\s*\)\@<=};*$<CR>
-      vim.keymap.set("n", "[[", [[?\(sub\s.*\)\@<={<CR>]], { buffer = true, silent = true, desc = "Perl: prev sub" })
-      vim.keymap.set("n", "]]", [[?\(^\s*\)\@<=};*$<CR>]], { buffer = true, silent = true, desc = "Perl: next end block" })
-
     elseif ft == "javascript" then
-      -- ORIGINAL (.vimrc): setlocal makeprg=/home/cub/.vim/jslint/jslint-run-node.js\ %
-      -- Почему не переносим: жёсткий путь.
-      -- Как делаем: LintFile использует eslint, если установлен.
-      -- vim.opt_local.makeprg = "/home/cub/.vim/jslint/jslint-run-node.js %"
-      -- vim.opt_local.errorformat = "%f:%l:%c:%m"
       add_tab_spaces_syntax()
-
     elseif ft == "gitcommit" then
-      -- ORIGINAL (.vimrc): call setpos('.', [0, 1, 1, 0])
       pcall(vim.fn.setpos, ".", { 0, 1, 1, 0 })
-    end
-
-    -- Title string (в nvim это работает, но зависит от терминала)
-    -- ORIGINAL (.vimrc): let &titlestring=g:user_host.": e ".expand("%") | set title
-    vim.opt.titlestring = ("%s: e %s"):format(vim.g.user_host, vim.fn.expand("%"))
-    vim.opt.title = true
-
-    -- Host-specific StatusLine tweaks (оставляем как в vimrc, но мягко)
-    -- ORIGINAL (.vimrc): if g:user_host == "cub-uanic@tux" ... hi StatusLine ...
-    if vim.g.user_host == "cub-uanic@tux" or vim.g.user_host == "o@tux" then
-      vim.cmd("hi StatusLine ctermfg=blue")
-    end
-    if vim.g.user_host == "cub-uanic@specific1-host.com" then
-      vim.cmd("hi StatusLine ctermbg=black ctermfg=yellow")
-    end
-    if vim.g.user_host == "cub-uanic@specific2-host.com" then
-      vim.cmd("hi StatusLine ctermfg=red")
     end
   end,
 })
 
--- ORIGINAL (.vimrc): au Syntax * call AddTabSpacesSyntax()
 vim.api.nvim_create_autocmd("Syntax", {
   group = aug,
   callback = function()
@@ -645,7 +308,6 @@ vim.api.nvim_create_autocmd("Syntax", {
   end,
 })
 
--- ORIGINAL (.vimrc): au BufWritePost * call UpdateTags()
 vim.api.nvim_create_autocmd("BufWritePost", {
   group = aug,
   callback = function()
@@ -653,213 +315,38 @@ vim.api.nvim_create_autocmd("BufWritePost", {
   end,
 })
 
--- ---------------------------------------------------------------------------
--- (10) Keymaps — перенос основных “функциональных” биндов + Telescope-замены
--- ---------------------------------------------------------------------------
+-- Perl buffer-local maps from vimrc
+-- ORIGINAL (.vimrc):
+--   map <buffer> [[ ?\(sub\s.*\)\@<={<CR>
+--   map <buffer> ]] ?\(^\s*\)\@<=};*$<CR>
+vim.api.nvim_create_autocmd("FileType", {
+  group = aug,
+  pattern = "perl",
+  callback = function()
+    vim.keymap.set("n", "[[", [[?\(sub\s.*\)\@<={<CR>]], { buffer = true, silent = true, desc = "Perl: prev sub" })
+    vim.keymap.set("n", "]]", [[?\(^\s*\)\@<=};*$<CR>]], { buffer = true, silent = true, desc = "Perl: next end block" })
+  end,
+})
 
-local function map(mode, lhs, rhs, desc, opts)
-  opts = opts or {}
-  opts.silent = (opts.silent ~= false)
-  opts.desc = desc
-  vim.keymap.set(mode, lhs, rhs, opts)
+-- ----------------------------------------------------------------------------
+-- LuaSnip “UltiSnipsEdit” аналог
+-- ----------------------------------------------------------------------------
+local function open_luasnip_file(ft)
+  local base = vim.fn.stdpath("config") .. "/lua/snippets"
+  local path = base .. "/" .. ft .. ".lua"
+  vim.fn.mkdir(base, "p")
+  ex_anywhere("edit " .. vim.fn.fnameescape(path))
 end
 
--- F1/F2 и quickfix
--- ORIGINAL (.vimrc): nmap <silent> <F1> :only<CR>
--- ORIGINAL (.vimrc): imap <silent> <F1> <C-O>:only<CR>
-map("n", "<F1>", "<cmd>only<CR>", "Оставить только текущее окно")
-map("i", "<F1>", "<C-o><cmd>only<CR>", "Оставить только текущее окно (insert)")
-
--- ORIGINAL (.vimrc): nmap <silent> <S-F1> :copen<CR>
--- ORIGINAL (.vimrc): nmap <silent> <C-F1> :close<CR>
-map("n", "<S-F1>", "<cmd>copen<CR>", "Открыть quickfix")
-map("i", "<S-F1>", "<C-o><cmd>copen<CR>", "Открыть quickfix (insert)")
-map("n", "<C-F1>", "<cmd>close<CR>", "Закрыть окно")
-map("i", "<C-F1>", "<C-o><cmd>close<CR>", "Закрыть окно (insert)")
-
--- Save
--- ORIGINAL (.vimrc): nmap <silent> <F2> :w<CR>
--- ORIGINAL (.vimrc): nmap <silent> <S-F2> :wa<CR>
-map("n", "<F2>", "<cmd>w<CR>", "Сохранить файл")
-map("i", "<F2>", "<C-o><cmd>w<CR>", "Сохранить файл (insert)")
-map("n", "<S-F2>", "<cmd>wa<CR>", "Сохранить все")
-map("i", "<S-F2>", "<C-o><cmd>wa<CR>", "Сохранить все (insert)")
-
--- Переключение BOM (оставляем как команду)
--- ORIGINAL (.vimrc): function TogilleBOM()
-local function toggle_bom()
-  vim.bo.bomb = not vim.bo.bomb
+local function luasnip_edit_current_ft()
+  local ft = vim.bo.filetype
+  if not ft or ft == "" then ft = "all" end
+  open_luasnip_file(ft)
 end
-map("n", "<S-F3>", toggle_bom, "Переключить BOM")
-map("i", "<S-F3>", function() toggle_bom() end, "Переключить BOM (insert)")
 
--- list/nolist
--- ORIGINAL (.vimrc): nmap <silent> <C-F3> :set list!<CR>
-map("n", "<C-F3>", function() vim.opt.list = not vim.opt.list:get() end, "Показать/скрыть listchars")
-map("i", "<C-F3>", function() vim.opt.list = not vim.opt.list:get() end, "Показать/скрыть listchars (insert)")
-
--- ---------------------------------------------------------------------------
--- Telescope: замена F6/F5/Tags/Buffers/Keymaps (ПУНКТ 1)
--- ---------------------------------------------------------------------------
-
--- ORIGINAL (.vimrc): nmap <silent> <F6> :Buffers<CR>
--- ORIGINAL (.vimrc): nmap <silent> <S-F6> :Tags<CR>
-map("n", "<F6>", function()
-  local b = telescope_ok()
-  if b then b.buffers() end
-end, "Telescope: buffers")
-map("i", "<F6>", function()
-  local b = telescope_ok()
-  if b then b.buffers() end
-end, "Telescope: buffers (insert)")
-
-map("n", "<S-F6>", function()
-  local b = telescope_ok()
-  if b then b.tags() end
-end, "Telescope: tags (ctags)")
-map("i", "<S-F6>", function()
-  local b = telescope_ok()
-  if b then b.tags() end
-end, "Telescope: tags (ctags) (insert)")
-
--- ORIGINAL (.vimrc): nmap <Leader><Tab> <Plug>(fzf-maps-n)
-map("n", "<Leader><Tab>", function()
-  local b = telescope_ok()
-  if b then b.keymaps() end
-end, "Telescope: keymaps")
-
--- Полезные аналоги ctrlp/nerdtree/bufexplorer (опционально)
--- (в vimrc это было распределено по разным плагинам, тут — “идеологично” Telescope)
-map("n", "<Leader>ff", function()
-  local b = telescope_ok()
-  if b then b.find_files() end
-end, "Telescope: файлы")
-map("n", "<Leader>fg", function()
-  local b = telescope_ok()
-  if b then b.live_grep() end
-end, "Telescope: grep")
-map("n", "<Leader>fr", function()
-  local b = telescope_ok()
-  if b then b.oldfiles() end
-end, "Telescope: recent")
-
--- Почему оставлено комментом: NERDTreeToggle (<C-G>) — зависит от того, что у тебя в kickstart (neo-tree/oil).
--- ORIGINAL (.vimrc): nmap <silent> <C-G> :NERDTreeToggle<CR>
--- map("n", "<C-G>", "<cmd>Neotree toggle<CR>", "Neo-tree toggle")   -- если у тебя neo-tree
--- map("n", "<C-G>", "<cmd>Oil<CR>", "Oil file explorer")            -- если у тебя oil.nvim
-
--- ---------------------------------------------------------------------------
--- Буфер туда-сюда / окна / quickfix nav
--- ---------------------------------------------------------------------------
-
--- ORIGINAL (.vimrc): nmap <silent> <C-F6> :e#<CR>
-map("n", "<C-F6>", "<cmd>e#<CR>", "Предыдущий файл")
-map("i", "<C-F6>", "<C-o><cmd>e#<CR>", "Предыдущий файл (insert)")
-
--- ORIGINAL (.vimrc): nmap <silent> <F7> :call NextWindow()<CR>
--- ORIGINAL (.vimrc): nmap <silent> <F8> :call PrevWindow()<CR>
-map("n", "<F7>", next_window, "Следующее окно")
-map("i", "<F7>", next_window, "Следующее окно (insert)")
-map("n", "<F8>", prev_window, "Предыдущее окно")
-map("i", "<F8>", prev_window, "Предыдущее окно (insert)")
-
--- ORIGINAL (.vimrc): map <silent> <C-F7> :cp<CR>  (prev qf)
--- ORIGINAL (.vimrc): map <silent> <C-F8> :cn<CR>  (next qf)
-map({ "n", "i" }, "<C-F7>", "<cmd>cp<CR>", "Quickfix: prev")
-map({ "n", "i" }, "<C-F8>", "<cmd>cn<CR>", "Quickfix: next")
-
--- Buffer prev/next
--- ORIGINAL (.vimrc): map <silent> <S-F7> :bp<CR>
--- ORIGINAL (.vimrc): map <silent> <S-F8> :bn<CR>
-map({ "n", "i" }, "<S-F7>", "<cmd>bp<CR>", "Буфер: предыдущий")
-map({ "n", "i" }, "<S-F8>", "<cmd>bn<CR>", "Буфер: следующий")
-
--- ---------------------------------------------------------------------------
--- Tidy/Lint бинды (ПУНКТ 2) — как в vimrc на F9/S-F9
--- ---------------------------------------------------------------------------
-
--- ORIGINAL (.vimrc): nmap <silent> <F9> m':call TidyFile()<CR>''   (с сохранением позиции)
--- В nvim проще: ставим mark ' и после — возврат. (аналогично твоей идее)
-map("n", "<F9>", function()
-  vim.cmd("normal! m'")
-  tidy_file()
-  vim.cmd("normal! ''")
-end, "TidyFile (format)")
-
-map("i", "<F9>", function()
-  vim.cmd("normal! m'")
-  tidy_file()
-  vim.cmd("normal! ''")
-end, "TidyFile (format) (insert)")
-
--- ORIGINAL (.vimrc): nmap <silent> <S-F9> m':call LintFile()<CR>''  (quickfix)
-map("n", "<S-F9>", function()
-  vim.cmd("normal! m'")
-  lint_file()
-  vim.cmd("normal! ''")
-end, "LintFile (quickfix)")
-
-map("i", "<S-F9>", function()
-  vim.cmd("normal! m'")
-  lint_file()
-  vim.cmd("normal! ''")
-end, "LintFile (quickfix) (insert)")
-
--- ORIGINAL (.vimrc): nmap <silent> <C-F9> <F9><F2><F6>
-map("n", "<C-F9>", function()
-  vim.cmd("normal! m'")
-  tidy_file()
-  vim.cmd("write")
-  local b = telescope_ok()
-  if b then b.buffers() end
-  vim.cmd("normal! ''")
-end, "Tidy + save + buffers")
-
--- Exit
--- ORIGINAL (.vimrc): nmap <silent> <F10> :qa<CR>
--- ORIGINAL (.vimrc): nmap <silent> <S-F10> :wqa<CR>
--- ORIGINAL (.vimrc): nmap <silent> <C-F10> :qa!<CR>
-map({ "n", "i" }, "<F10>", "<cmd>qa<CR>", "Выйти")
-map({ "n", "i" }, "<S-F10>", "<cmd>wqa<CR>", "Сохранить и выйти")
-map({ "n", "i" }, "<C-F10>", "<cmd>qa!<CR>", "Выйти без сохранения")
-
--- Window resize (Alt+arrows)
--- ORIGINAL (.vimrc): map <A-Up> <C-W>-  и т.д.
-map("n", "<A-Up>", "<C-w>-", "Окно ниже (уменьшить высоту)")
-map("n", "<A-Down>", "<C-w>+", "Окно выше (увеличить высоту)")
-map("n", "<A-Left>", "<C-w><", "Окно уже")
-map("n", "<A-Right>", "<C-w>>", "Окно шире")
-
--- Backspace/Enter на теги/переход (как в vimrc)
--- ORIGINAL (.vimrc): nmap <silent> <BS> :call TagBack_or_Alternate()<CR>
--- ORIGINAL (.vimrc): nmap <silent> <Enter> :call GF_or_Tag()<CR>
-map("n", "<BS>", tagback_or_alternate, "Назад по тегам или alternate")
-map("n", "<CR>", gf_or_tag, "LSP definition -> gf -> tag")
-
--- Быстрый nohl
--- ORIGINAL (.vimrc): nmap <silent> <Leader><Leader> :nohl<CR>
-map("n", "<Bslash><Bslash>", "<cmd>nohlsearch<CR>", "Убрать подсветку поиска")
-
--- OverLength toggles
--- ORIGINAL (.vimrc): nmap <Leader>y :call HighLightOverLength("yes")<CR>
--- ORIGINAL (.vimrc): nmap <Leader>n :call HighLightOverLength("no")<CR>
-map("n", "<Leader>y", function() highlight_overlength(true) end, "Подсветка >120: включить")
-map("n", "<Leader>n", function() highlight_overlength(false) end, "Подсветка >120: выключить")
-
--- Русская “№” -> “#”
--- ORIGINAL (.vimrc): imap № #
-map("i", "№", "#", "№ -> #")
-
--- Визуальные отступы (как в vimrc)
--- ORIGINAL (.vimrc): vmap <  <gv ; vmap > >gv ; vmap <Tab> >gv ; vmap <S-Tab> <gv
-map("v", "<", "<gv", "Сдвиг влево (остаться в выделении)")
-map("v", ">", ">gv", "Сдвиг вправо (остаться в выделении)")
-map("v", "<Tab>", ">gv", "Сдвиг вправо (Tab)")
-map("v", "<S-Tab>", "<gv", "Сдвиг влево (S-Tab)")
-
--- Mirror/Reverse команды
--- ORIGINAL (.vimrc): command! -range Mirror ...
--- ORIGINAL (.vimrc): command! -range=% Reverse ...
+-- ----------------------------------------------------------------------------
+-- Mirror / Reverse (из vimrc)
+-- ----------------------------------------------------------------------------
 vim.api.nvim_create_user_command("Mirror", function(opts)
   local l1, l2 = opts.line1, opts.line2
   for l = l1, l2 do
@@ -880,78 +367,354 @@ vim.api.nvim_create_user_command("Reverse", function(opts)
   vim.api.nvim_buf_set_lines(0, l1 - 1, l2, false, rev)
 end, { range = true })
 
--- Визуальные маппинги на Mirror/Reverse (как в vimrc)
--- ORIGINAL (.vimrc): vmap <Leader>m :Mirror<CR>
--- ORIGINAL (.vimrc): vmap <Leader>r :Reverse<CR>
-map("v", "<Leader>m", ":Mirror<CR>", "Mirror выделение", { silent = false })
-map("v", "<Leader>r", ":Reverse<CR>", "Reverse выделение", { silent = false })
+-- ----------------------------------------------------------------------------
+-- Keymaps (оптимизированные)
+-- ----------------------------------------------------------------------------
+local function map(mode, lhs, rhs, desc, opts)
+  opts = opts or {}
+  opts.silent = (opts.silent ~= false)
+  opts.desc = desc
+  vim.keymap.set(mode, lhs, rhs, opts)
+end
 
--- ---------------------------------------------------------------------------
--- (11) Прочее из vimrc — оставлено комментом (можно вернуть по запросу)
--- ---------------------------------------------------------------------------
-
--- Почему оставлено комментом: StardictTranslate зависит от внешнего sdcv.
--- ORIGINAL (.vimrc): function StardictTranslate() ... system("sdcv -n ...")
--- (Если надо — перенесу как Lua-команду и аккуратно покажу вывод в floating window)
-
--- Почему оставлено комментом: DimInactiveWindows “хак” через colorcolumn может тормозить в nvim.
--- ORIGINAL (.vimrc): s:DimInactiveWindows() ... setwinvar('&colorcolumn', range) ...
--- Если тебе реально важно — сделаю nvim-версию через winhighlight (обычно быстрее).
+-- Универсальная функция: повесить одно действие на несколько клавиш
+local function map_multi(modes, keys, action, desc)
+  for _, key in ipairs(keys) do
+    vim.keymap.set(modes, key, action, {
+      silent = true,
+      desc = desc,
+    })
+  end
+end
 
 
--- ============================================================================
--- Handy shortcuts (добавка)
--- ============================================================================
+-- ========== F1..F12 ==========
 
--- Быстро закрыть текущий буфер (без убийства окна)
--- Аналог “удобно, как в bufexplorer/плагинах”
-map("n", "<Leader>bd", "<cmd>bdelete<CR>", "Буфер: закрыть текущий")
+-- ORIGINAL (.vimrc): nmap/imap <F1> :only
+map({ "n", "i" }, "<F1>", function() ex_anywhere("only") end, "Оставить только текущее окно")
 
--- Быстро закрыть все остальные буферы (оставить текущий)
-map("n", "<Leader>bo", "<cmd>%bdelete|edit#|bdelete#<CR>", "Буфер: закрыть остальные")
+-- ORIGINAL (.vimrc): nmap/imap <S-F1> :copen
+map_multi({ "n", "i" }, { "<S-F1>", "<F13>" }, function() ex_anywhere("copen") end, "Quickfix: открыть")
 
--- Быстро открыть список буферов (Telescope)
-map("n", "<Leader>bb", function()
-  local ok, b = pcall(require, "telescope.builtin")
-  if ok then b.buffers() end
+-- ORIGINAL (.vimrc): nmap/imap <C-F1> :close
+map_multi({ "n", "i" }, { "<C-F1>", "<F25>" }, function() ex_anywhere("close") end, "Окно: закрыть")
+
+-- ORIGINAL (.vimrc): nmap/imap <F2> :w
+map({ "n", "i" }, "<F2>", function() ex_anywhere("write") end, "Сохранить")
+
+-- ORIGINAL (.vimrc): nmap/imap <S-F2> :wa
+map_multi({ "n", "i" }, { "<S-F2>", "<F14>" }, function() ex_anywhere("wall") end, "Сохранить все")
+
+-- UltiSnipsEdit -> LuaSnip edit file
+-- ORIGINAL (.vimrc):
+--   vmap <F2> y<C-O>:UltiSnipsEdit<CR>
+--   vmap <C-F2> d<C-O>:UltiSnipsEdit<CR>
+--   imap <C-F2> <C-O>:UltiSnipsEdit<CR>
+--   nmap <C-F2> :UltiSnipsEdit<CR>
+map("v", "<F2>", function()
+  normal_anywhere("y", false)
+  luasnip_edit_current_ft()
+end, "LuaSnip: открыть сниппеты (yank selection)")
+
+map_multi("v", { "<C-F2>", "<F26>" }, function()
+  normal_anywhere("d", false)
+  luasnip_edit_current_ft()
+end, "LuaSnip: открыть сниппеты (delete selection)")
+
+map_multi({ "n", "i" }, { "<C-F2>", "<F26>" }, function()
+  luasnip_edit_current_ft()
+end, "LuaSnip: открыть сниппеты для текущего ft")
+
+-- Utl plugin — не переносим
+-- ORIGINAL (.vimrc): map/imap <F3> :Utl
+-- (плагина нет в kickstart)
+
+-- ORIGINAL (.vimrc): nmap/imap <S-F3> :call TogilleBOM()
+map_multi({ "n", "i" }, { "<S-F3>", "<F15>" }, function() vim.bo.bomb = not vim.bo.bomb end, "Переключить BOM")
+
+-- ORIGINAL (.vimrc): nmap/imap <C-F3> :set list!
+map_multi({ "n", "i" }, { "<C-F3>", "<F27>" }, function() vim.opt.list = not vim.opt.list:get() end, "Listchars: on/off")
+
+-- TagList -> Telescope symbols/tags
+-- ORIGINAL (.vimrc): nmap/imap <F4> :TlistOpen
+map({ "n", "i" }, "<F4>", function()
+  local b = t_builtin()
+  if b then b.lsp_document_symbols() end
+end, "Symbols: document (Telescope вместо TagList)")
+
+-- ORIGINAL (.vimrc): nmap/imap <S-F4> :TlistToggle
+map_multi({ "n", "i" }, { "<S-F4>", "<F16>" }, function()
+  local b = t_builtin()
+  if b then b.tags() end
+end, "Tags (ctags) (Telescope)")
+
+-- BufExplorer -> Telescope buffers
+-- ORIGINAL (.vimrc): nmap/imap <F5> :BufExplorer
+map({ "n", "i" }, "<F5>", function()
+  local b = t_builtin()
+  if b then b.find_files() end
+end, "Buffers (Telescope)")
+
+-- fugitive :Gblame -> gitsigns blame (visual F5)
+-- ORIGINAL (.vimrc): vmap <F5> :Gblame
+map("v", "<F5>", function()
+  local ok, gs = pcall(require, "gitsigns")
+  if ok then gs.blame_line({ full = true }) end
+end, "Git blame (gitsigns)")
+
+-- MultipleSearch -> Telescope current buffer + reset
+-- ORIGINAL (.vimrc): nmap/imap <C-F5> :Search
+map_multi({ "n", "i" }, { "<C-F5>", "<F29>" }, function()
+  local b = t_builtin()
+  if b then b.current_buffer_fuzzy_find() end
+end, "Search in buffer (Telescope)")
+
+-- ORIGINAL (.vimrc): nmap/imap <S-F5> :SearchReset
+map_multi({ "n", "i" }, { "<S-F5>", "<F17>" }, function()
+  vim.fn.setreg("/", "")
+  vim.cmd("nohlsearch")
+end, "SearchReset (очистить поиск + nohl)")
+
+-- fzf :Buffers/:Tags -> Telescope
+-- ORIGINAL (.vimrc): nmap/imap <F6> :Buffers
+map({ "n", "i" }, "<F6>", function()
+  local b = t_builtin()
+  if b then b.buffers() end
 end, "Telescope: buffers")
 
--- Файлы / grep (если хочешь прям “handy” под рукой)
-map("n", "<Leader>pf", function()
-  local ok, b = pcall(require, "telescope.builtin")
-  if ok then b.find_files() end
-end, "Telescope: найти файл")
+-- ORIGINAL (.vimrc): nmap/imap <S-F6> :Tags
+map_multi({ "n", "i" }, { "<S-F6>", "<F18>" }, function()
+  local b = t_builtin()
+  if b then b.tags() end
+end, "Telescope: tags")
 
-map("n", "<Leader>pg", function()
-  local ok, b = pcall(require, "telescope.builtin")
-  if ok then b.live_grep() end
-end, "Telescope: поиск по проекту")
+-- ORIGINAL (.vimrc): nmap/imap <C-F6> :e#
+map_multi({ "n", "i" }, { "<C-F6>", "<F30>" }, function() ex_anywhere("edit #") end, "Предыдущий файл (e#)")
 
--- Переключение относительных номеров (часто супер-удобно)
-map("n", "<Leader>nr", function()
-  vim.opt.relativenumber = not vim.opt.relativenumber:get()
-end, "Номера строк: relative on/off")
+-- ORIGINAL (.vimrc): nmap/imap <F7> NextWindow
+map({ "n", "i" }, "<F7>", function() next_window() end, "Окна: следующее (циклом)")
 
--- Быстро включить/выключить wrap
-map("n", "<Leader>tw", function()
-  vim.opt.wrap = not vim.opt.wrap:get()
-end, "Wrap: on/off")
+-- ORIGINAL (.vimrc): nmap/imap <F8> PrevWindow
+map({ "n", "i" }, "<F8>", function() prev_window() end, "Окна: предыдущее (циклом)")
 
--- Быстро включить/выключить spell
-map("n", "<Leader>ts", function()
-  vim.opt.spell = not vim.opt.spell:get()
-end, "Spell: on/off")
+-- ORIGINAL (.vimrc): map/imap <C-F7> :cp
+map_multi({ "n", "i" }, { "<C-F7>", "<F31>" }, function() ex_anywhere("cp") end, "Quickfix: prev")
 
--- Быстро открыть/закрыть quickfix
-map("n", "<Leader>qq", function()
-  if vim.fn.getqflist({ winid = 0 }).winid ~= 0 then
-    vim.cmd("cclose")
+-- ORIGINAL (.vimrc): map/imap <C-F8> :cn
+map_multi({ "n", "i" }, { "<C-F8>", "<F32>" }, function() ex_anywhere("cn") end, "Quickfix: next")
+
+-- ORIGINAL (.vimrc): map/imap <S-F7> :bp
+map_multi({ "n", "i" }, { "<S-F7>", "<F19>" }, function() ex_anywhere("bp") end, "Буфер: предыдущий")
+
+-- ORIGINAL (.vimrc): map/imap <S-F8> :bn
+map_multi({ "n", "i" }, { "<S-F8>", "<F20>" }, function() ex_anywhere("bn") end, "Буфер: следующий")
+
+-- F9 / S-F9 / C-F9 “естественно” для nvim:
+-- F9 -> formatter (conform/perltidy)
+-- S-F9 -> linter (nvim-lint/perlcritic)
+-- C-F9 -> format + save + buffers
+map({ "n", "i" }, "<F9>", function()
+  if vim.fn.mode():match("^i") then vim.cmd("stopinsert") end
+  local ok, conform = pcall(require, "conform")
+  if ok then
+    conform.format({ async = false, lsp_fallback = true })
   else
-    vim.cmd("copen")
+    vim.lsp.buf.format({ async = false })
   end
-end, "Quickfix: toggle")
+end, "Format (conform/perltidy)")
 
-return VIMRC
+-- TODO: delete?
+-- map({ "n", "i" }, "<S-F9>", function()
+--   if vim.fn.mode():match("^i") then vim.cmd("stopinsert") end
+--   local ok, lint = pcall(require, "lint")
+--   if ok then lint.try_lint() end
+-- end, "Lint (nvim-lint/perlcritic)")
+
+map_multi({ "n", "i" }, { "<C-F9>", "<F33>" }, function()
+  if vim.fn.mode():match("^i") then vim.cmd("stopinsert") end
+  local ok, conform = pcall(require, "conform")
+  if ok then conform.format({ async = false, lsp_fallback = true }) end
+  vim.cmd("write")
+  local b = t_builtin()
+  if b then b.buffers() end
+end, "Format + save + buffers")
+
+-- ORIGINAL (.vimrc): nmap/imap <F10> :qa
+map({ "n", "i" }, "<F10>", function() ex_anywhere("qa") end, "Выйти")
+
+-- ORIGINAL (.vimrc): nmap/imap <S-F10> :wqa
+map_multi({ "n", "i" }, { "<S-F10>", "<F22>" }, function() ex_anywhere("wqa") end, "Сохранить и выйти")
+
+-- ORIGINAL (.vimrc): nmap/imap <C-F10> :qa!
+map_multi({ "n", "i" }, { "<C-F10>", "<F34>" }, function() ex_anywhere("qa!") end, "Выйти без сохранения")
+
+-- SessionOpen -> persistence
+-- ORIGINAL (.vimrc): nmap <S-F11> :SessionOpen elc
+-- ORIGINAL (.vimrc): nmap <S-F12> :SessionOpen default
+map_multi("n", { "<S-F11>", "<F23>" }, function()
+  local ok, p = pcall(require, "persistence")
+  if ok then p.load() end
+end, "Session: load (persistence)")
+
+map_multi("n", { "<S-F12>", "<F24>" }, function()
+  local ok, p = pcall(require, "persistence")
+  if ok then p.select() end
+end, "Session: select (persistence)")
+
+-- UpdateTags
+-- ORIGINAL (.vimrc): nmap/imap <C-F12> :call UpdateTags()
+map_multi({ "n", "i" }, { "<C-F12>", "<F36>" }, function() update_tags() end, "UpdateTags")
+-- raw-seq убран: нужен только если терминал не умеет <C-F12> (у тебя сейчас клавиши норм приходят)
+
+-- VNC workaround
+-- ORIGINAL (.vimrc): nmap/imap <F12> :qa
+map({ "n", "i" }, "<F12>", function() ex_anywhere("qa") end, "Выйти (F12, как в vimrc для VNC)")
+
+-- ========== Alt+Arrows window resize ==========
+-- ORIGINAL (.vimrc): map <A-Up>/<A-Down>/<A-Left>/<A-Right> <C-W>-/+/</>
+map("n", "<A-Up>", "<C-w>-", "Окно: меньше высота")
+map("n", "<A-Down>", "<C-w>+", "Окно: больше высота")
+map("n", "<A-Left>", "<C-w><", "Окно: меньше ширина")
+map("n", "<A-Right>", "<C-w>>", "Окно: больше ширина")
+
+-- ========== Non-functional keys / handy stuff ==========
+
+-- NERDTreeToggle заменяем на “идеологичный” toggle: neo-tree/oil/Ex
+-- ORIGINAL (.vimrc): nmap/imap <C-G> :NERDTreeToggle
+map({ "n", "i" }, "<C-G>", function()
+  if vim.fn.mode():match("^i") then vim.cmd("stopinsert") end
+
+  local ok_neotree, neotree = pcall(require, "neo-tree.command")
+  if ok_neotree then
+    neotree.execute({ toggle = true, dir = vim.uv.cwd() })
+    return
+  end
+
+  local ok_oil = pcall(require, "oil")
+  if ok_oil then
+    vim.cmd("Oil")
+    return
+  end
+
+  vim.cmd("Ex")
+end, "File tree toggle (neo-tree/oil/Ex)")
+
+-- Yank/Paste в определённый регистр (как в vimrc)
+-- В Vim “встроенной Lua-функции yank в регистр” нет: yank — это оператор, поэтому
+-- самый естественный способ — normal-команды с префиксом регистра.
+-- Мы делаем это через vim.cmd.normal() (без feedkeys).
+-- ORIGINAL (.vimrc): nmap/vmap/imap <C-Y> "fy
+map("n", "<C-Y>", function() vim.cmd.normal({ [["fy]], bang = true }) end, 'Yank -> регистр "f"')
+map("v", "<C-Y>", function() vim.cmd.normal({ [["fy]], bang = true }) end, 'Yank -> регистр "f" (visual)')
+map("i", "<C-Y>", function() normal_anywhere([["fy]], true) end, 'Yank -> регистр "f" (insert)')
+
+-- ORIGINAL (.vimrc): nmap/imap <C-K> "fP
+map("n", "<C-K>", function() vim.cmd.normal({ [["fP]], bang = true }) end, 'Paste(before) из регистра "f"')
+map("i", "<C-K>", function() normal_anywhere([["fP]], true) end, 'Paste(before) из регистра "f" (insert)')
+
+-- ORIGINAL (.vimrc): nmap/vmap/imap <C-N> "uy
+map("n", "<C-N>", function() vim.cmd.normal({ [["uy]], bang = true }) end, 'Yank -> регистр "u"')
+map("v", "<C-N>", function() vim.cmd.normal({ [["uy]], bang = true }) end, 'Yank -> регистр "u" (visual)')
+map("i", "<C-N>", function() normal_anywhere([["uy]], true) end, 'Yank -> регистр "u" (insert)')
+
+-- ORIGINAL (.vimrc): nmap/imap <C-L> "uP
+map("n", "<C-L>", function() vim.cmd.normal({ [["uP]], bang = true }) end, 'Paste(before) из регистра "u"')
+map("i", "<C-L>", function() normal_anywhere([["uP]], true) end, 'Paste(before) из регистра "u" (insert)')
+
+-- C-* : FufTagWithCursorWord (плагина нет) -> Telescope tags с подстановкой слова или LSP def
+-- ORIGINAL (.vimrc): nmap/imap <C-*> :FufTagWithCursorWord
+map({ "n", "i" }, "<C-*>", function()
+  if vim.fn.mode():match("^i") then vim.cmd("stopinsert") end
+  local w = vim.fn.expand("<cword>")
+  local b = t_builtin()
+  if b then
+    b.tags({ default_text = w })
+  else
+    vim.lsp.buf.definition()
+  end
+end, "Tag with cursor word (Telescope/LSP)")
+
+-- TagBack/GFOrTag
+-- ORIGINAL (.vimrc): nmap <BS> :call TagBack_or_Alternate()
+map("n", "<BS>", tagback_or_alternate, "Tag back / alternate")
+-- ORIGINAL (.vimrc): nmap <Enter> :call GF_or_Tag()
+map("n", "<CR>", gf_or_tag, "LSP def -> gf -> tag")
+
+-- <Space> -> PageDown (замена) — закомментить по требованию
+-- ORIGINAL (.vimrc): nmap <silent> <Space> <PageDown>
+-- map("n", "<Space>", "<PageDown>", "PageDown")
+
+-- Ctrl-Up/Down: gk/gj (перемещение по экранным строкам)
+-- ORIGINAL (.vimrc): nmap <C-Up> gk ; nmap <C-Down> gj ; imap ... <C-O>gk/gj
+-- Без feedkeys мы делаем: stopinsert -> normal -> startinsert
+map("n", "<C-Up>", function() vim.cmd.normal({ "gk", bang = true }) end, "Вверх по экранным строкам")
+map("n", "<C-Down>", function() vim.cmd.normal({ "gj", bang = true }) end, "Вниз по экранным строкам")
+map("i", "<C-Up>", function() normal_anywhere("gk", true) end, "Вверх по экранным строкам (insert)")
+map("i", "<C-Down>", function() normal_anywhere("gj", true) end, "Вниз по экранным строкам (insert)")
+
+-- Mirror/Reverse visual
+-- ORIGINAL (.vimrc): vmap <Leader>m :Mirror<CR>
+-- ORIGINAL (.vimrc): vmap <Leader>r :Reverse<CR>
+map("v", "<Leader>m", ":Mirror<CR>", "Mirror (visual)", { silent = false })
+map("v", "<Leader>r", ":Reverse<CR>", "Reverse (visual)", { silent = false })
+
+-- nohlsearch (требование: <Bslash><Bslash>)
+-- ORIGINAL (.vimrc): nmap <Leader><Leader> :nohl
+map("n", "<Bslash><Bslash>", "<cmd>nohlsearch<CR>", "Убрать подсветку поиска")
+
+-- OverLength
+-- ORIGINAL (.vimrc): nmap <Leader>y ... yes ; nmap <Leader>n ... no
+map("n", "<Leader>y", function() highlight_overlength(true) end, "OverLength: ON")
+map("n", "<Leader>n", function() highlight_overlength(false) end, "OverLength: OFF")
+
+-- Marks shortcuts (Tab-f/u/p/$ and jumps) — оставляем как было
+-- ORIGINAL (.vimrc): nmap <Tab>f mF ... etc
+map("n", "<Tab>f", "mF", "Mark: поставить F")
+map("n", "<Tab>u", "mU", "Mark: поставить U")
+map("n", "<Tab>p", "mP", "Mark: поставить P")
+map("n", "<Tab>;", "mA", "Mark: поставить A")
+map("n", "<Tab>n", "'F", "Jump: к mark F")
+map("n", "<Tab>e", "'U", "Jump: к mark U")
+map("n", "<Tab>o", "'P", "Jump: к mark P")
+map("n", "<Tab>i", "'A", "Jump: к mark A")
+
+-- Indent shortcuts (< >)
+-- ORIGINAL (.vimrc): nmap < << ; nmap > >> ; vmap < <gv ; vmap > >gv ; vmap <Tab>/<S-Tab>
+map("n", "<", "<<", "Indent: строка влево")
+map("n", ">", ">>", "Indent: строка вправо")
+map("v", "<", "<gv", "Indent: блок влево (остаться)")
+map("v", ">", ">gv", "Indent: блок вправо (остаться)")
+map("v", "<Tab>", ">gv", "Indent: блок вправо (Tab)")
+map("v", "<S-Tab>", "<gv", "Indent: блок влево (S-Tab)")
+
+-- Registers list ("" )
+-- ORIGINAL (.vimrc): nnoremap "" :registers "0123456789abcdefghijklmnopqrstuvwxyz*+.<CR>
+map("n", [[""]], function()
+  vim.cmd([[registers "0123456789abcdefghijklmnopqrstuvwxyz*+.]])
+end, 'Показать регистры ("" )')
+
+-- Русская “№” -> “#”
+-- ORIGINAL (.vimrc): imap № #
+-- map("i", "№", "#", "№ -> #")
+
+-- ----------------------------------------------------------------------------
+-- Session handy shortcuts (как “вокруг vim-session”, но под persistence.nvim)
+-- ----------------------------------------------------------------------------
+map("n", "<Leader>ps", function()
+  local ok, p = pcall(require, "persistence")
+  if ok then p.save() end
+end, "Session: save")
+
+map("n", "<Leader>pl", function()
+  local ok, p = pcall(require, "persistence")
+  if ok then p.load() end
+end, "Session: load")
+
+map("n", "<Leader>pc", function()
+  local ok, p = pcall(require, "persistence")
+  if ok then p.select() end
+end, "Session: choose")
+
 
 -- vim: ts=2 sts=2 sw=2 et
 
