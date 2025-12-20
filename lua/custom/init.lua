@@ -4,32 +4,32 @@
 --  I promise not to create any merge conflicts in this directory :)
 --
 -- See the kickstart.nvim README for more information
-require("custom.vimrc-cub")
+require 'custom.vimrc-cub'
 
-vim.filetype.add({
+vim.filetype.add {
   extension = {
-    log = "log",
+    log = 'log',
   },
   filename = {
-    ["morbo.log"] = "log",
-    ["app.log"] = "log",
+    ['morbo.log'] = 'log',
+    ['app.log'] = 'log',
   },
-})
+}
 
 -- Auto-load vim-dadbod connections from project files
 -- (DATABASE_URL in .env, Dancer config.yml, etc.)
 do
-  local group = vim.api.nvim_create_augroup("CustomDadbodProject", { clear = true })
+  local group = vim.api.nvim_create_augroup('CustomDadbodProject', { clear = true })
 
   local function reload(notify)
-    local ok, mod = pcall(require, "custom.db_project_dadbod")
+    local ok, mod = pcall(require, 'custom.db_project_dadbod')
     if ok and mod then
-      mod.load_for_cwd({ notify = notify })
+      mod.load_for_cwd { notify = notify }
     end
   end
 
   -- Load on startup
-  vim.api.nvim_create_autocmd("VimEnter", {
+  vim.api.nvim_create_autocmd('VimEnter', {
     group = group,
     callback = function()
       reload(false)
@@ -37,7 +37,7 @@ do
   })
 
   -- Reload when you change directory (e.g. opening another project)
-  vim.api.nvim_create_autocmd("DirChanged", {
+  vim.api.nvim_create_autocmd('DirChanged', {
     group = group,
     callback = function()
       reload(false)
@@ -45,7 +45,7 @@ do
   })
 
   -- Manual command
-  vim.api.nvim_create_user_command("DBProjectReload", function()
+  vim.api.nvim_create_user_command('DBProjectReload', function()
     reload(true)
   end, {})
 end
@@ -104,4 +104,51 @@ end
 --   Улучшенный syntax / indent / folding для Perl
 --
 -- ============================================================================
-
+-- 🧠 Neovim Autocompletion Cheat Sheet
+-- ============================================================================
+--
+-- nvim-cmp (основной автокомплит)
+--
+--   <C-Space>                  — вручную открыть меню completion
+--   <C-e>                      — закрыть меню completion
+--   <CR>                       — подтвердить выбранный вариант
+--                                 (Insert → Replace, как в kickstart)
+--
+-- Навигация по списку completion
+--   <C-n>                      — следующий элемент
+--   <C-p>                      — предыдущий элемент
+--
+-- Snippets (LuaSnip, если включён в kickstart)
+--   <Tab>                      — перейти к следующему placeholder’у сниппета
+--   <S-Tab>                    — перейти к предыдущему placeholder’у
+--   (работает, если активен snippet jump)
+--
+-- Источники completion (автоматически)
+--
+--   LSP                        — код, символы, методы (Perl LSP, если подключён)
+--   buffer                     — слова из текущего буфера
+--   path                       — пути к файлам
+--   luasnip                    — сниппеты
+--
+-- SQL / DB (vim-dadbod-completion)
+--
+--   completion в SQL-буферах:
+--     * имена таблиц
+--     * колонки
+--     * схемы
+--   Источник активен, если:
+--     - открыт SQL-буфер
+--     - есть активное dadbod-подключение (:DBUI / vim.g.dbs)
+--
+--   :DBProjectReload           — перечитать DB-конфиг проекта
+--                                 (.env / config.yml / config/database.yml)
+--
+-- Полезно помнить
+--
+--   completion появляется автоматически при вводе
+--   <C-Space> — всегда принудительно показывает список
+--   если completion "пропал":
+--     :LspInfo                 — проверить LSP
+--     :CmpStatus               — статус nvim-cmp (если доступно)
+--
+-- ============================================================================
