@@ -4,3 +4,13 @@
 -- See the kickstart.nvim README for more information
 require("custom.vimrc-cub")
 
+vim.filetype.add({
+  extension = {
+    log = "log",
+  },
+  filename = {
+    ["morbo.log"] = "log",
+    ["app.log"] = "log",
+  },
+})
+
