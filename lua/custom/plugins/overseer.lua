@@ -1,3 +1,4 @@
+-- vim: ts=2 sts=2 sw=2 et
 -- Если ты открыл не *.psgi/config.ru, но файл по use определился как psgi,
 -- и в проекте найден bin/app.psgi (или app.psgi/config.ru) — запустится entrypoint проекта.
 --
@@ -65,12 +66,35 @@ return {
       return nil
     end
 
+    local function glob_all(pattern)
+      local res = vim.fn.glob(pattern, false, true)
+      if type(res) == "table" then
+        return res
+      end
+      return {}
+    end
+
     local function ensure_cmd(cmd0)
       if vim.fn.executable(cmd0) ~= 1 then
         notify(("rr: command not found in $PATH: %s"):format(cmd0), vim.log.levels.ERROR)
         return false
       end
       return true
+    end
+
+    local function is_perl_like(file, bufnr)
+      if file:match("%.p[lm]$") or file:match("%.t$") or file:match("%.psgi$") then
+        return true
+      end
+      local ft = vim.bo[bufnr].filetype
+      if ft == "perl" then
+        return true
+      end
+      local first = vim.api.nvim_buf_get_lines(bufnr, 0, 1, false)[1] or ""
+      if first:match("^#!") and (first:match("perl") or first:match("env%s+perl")) then
+        return true
+      end
+      return false
     end
 
     -- Create & start overseer task directly (NO run_template)
@@ -80,7 +104,6 @@ return {
         return
       end
 
-      -- sanity check: executable exists
       if not ensure_cmd(spec.cmd[1]) then
         return
       end
@@ -89,7 +112,7 @@ return {
         name = spec.name,
         cmd = spec.cmd,
         args = spec.args,
-        cwd = spec.cwd, -- important for relative paths / project env
+        cwd = spec.cwd,
         components = { "default" },
       })
 
@@ -98,7 +121,6 @@ return {
     end
 
     local function run_in_terminal(cmdline)
-      -- primary terminal runner: toggleterm.nvim (если установлен)
       local ok_term, term_mod = pcall(require, "toggleterm.terminal")
       if ok_term and term_mod and term_mod.Terminal then
         local Terminal = term_mod.Terminal
@@ -112,7 +134,6 @@ return {
         return
       end
 
-      -- fallback: terminal via overseer (через shell)
       run_overseer({
         name = "terminal fallback: " .. cmdline,
         cmd = { vim.o.shell },
@@ -129,12 +150,10 @@ return {
       local lines = vim.api.nvim_buf_get_lines(bufnr, 0, max_lines, false)
       local text = table.concat(lines, "\n")
 
-      -- Catalyst
       if text:match("[\r\n]%s*use%s+Catalyst[%s;]") or text:match("^%s*use%s+Catalyst[%s;]") then
         return "catalyst"
       end
 
-      -- Mojo / Mojolicious / Mojolicious::Lite / Mojo::*
       if text:match("[\r\n]%s*use%s+Mojolicious[%s;]") or text:match("^%s*use%s+Mojolicious[%s;]")
         or text:match("[\r\n]%s*use%s+Mojolicious::Lite[%s;]") or text:match("^%s*use%s+Mojolicious::Lite[%s;]")
         or text:match("[\r\n]%s*use%s+Mojo::[%w:]+[%s;]") or text:match("^%s*use%s+Mojo::[%w:]+[%s;]")
@@ -143,12 +162,10 @@ return {
         return "mojo"
       end
 
-      -- Dancer / Dancer2
       if text:match("[\r\n]%s*use%s+Dancer2?[%s;]") or text:match("^%s*use%s+Dancer2?[%s;]") then
         return "dancer"
       end
 
-      -- Tests: Test::*, Test2::*
       if text:match("[\r\n]%s*use%s+Test2?::[%w:]+[%s;]") or text:match("^%s*use%s+Test2?::[%w:]+[%s;]")
         or text:match("[\r\n]%s*use%s+Test::More[%s;]") or text:match("^%s*use%s+Test::More[%s;]")
         or text:match("[\r\n]%s*use%s+Test::Mojo[%s;]") or text:match("^%s*use%s+Test::Mojo[%s;]")
@@ -158,7 +175,6 @@ return {
         return "test"
       end
 
-      -- PSGI/Plack
       if text:match("[\r\n]%s*use%s+Plack[%s;]") or text:match("^%s*use%s+Plack[%s;]")
         or text:match("[\r\n]%s*use%s+Plack::[%w:]+[%s;]") or text:match("^%s*use%s+Plack::[%w:]+[%s;]")
         or text:match("[\r\n]%s*use%s+PSGI[%s;]") or text:match("^%s*use%s+PSGI[%s;]")
@@ -171,35 +187,59 @@ return {
 
     -- ---------------------------------------------------------------------
     -- FALLBACK detection: filesystem/project + file-based heuristics
+    -- (улучшено для entrypoints без поломки существующей логики)
     -- ---------------------------------------------------------------------
     local function detect_fallback(root, file)
       local is_test_path = (file:match("%.t$") ~= nil) or (file:match("/t/") ~= nil)
       local is_psgi_file = (file:match("%.psgi$") ~= nil) or (file:match("config%.ru$") ~= nil)
 
-      local mojo_app = joinpath(root, "script", "app.pl")
-      local is_mojo = exists(mojo_app)
+      -- Mojo entrypoint:
+      -- 1) script/app.pl (старое поведение)
+      -- 2) иначе: любой исполняемый файл в script/ (scaffold: script/<app>)
+      local mojo_app = nil
+      local mojo_app_pl = joinpath(root, "script", "app.pl")
+      if exists(mojo_app_pl) then
+        mojo_app = mojo_app_pl
+      else
+        local scripts = glob_all(joinpath(root, "script", "*"))
+        for _, p in ipairs(scripts) do
+          if vim.fn.filereadable(p) == 1 and vim.fn.executable(p) == 1 then
+            mojo_app = p
+            break
+          end
+        end
+      end
+      local is_mojo = mojo_app ~= nil
 
+      -- Dancer/PSGI entrypoint: расширили поиски (bin/*.psgi, script/*.psgi тоже)
       local dancer_entry = nil
-      if exists(joinpath(root, "bin", "app.psgi")) then
-        dancer_entry = joinpath(root, "bin", "app.psgi")
-      elseif exists(joinpath(root, "app.psgi")) then
-        dancer_entry = joinpath(root, "app.psgi")
-      elseif exists(joinpath(root, "config.ru")) then
-        dancer_entry = joinpath(root, "config.ru")
+      local candidates = {
+        joinpath(root, "bin", "app.psgi"),
+        joinpath(root, "app.psgi"),
+        joinpath(root, "config.ru"),
+      }
+      for _, c in ipairs(candidates) do
+        if exists(c) then
+          dancer_entry = c
+          break
+        end
+      end
+      if not dancer_entry then
+        dancer_entry = glob_one(joinpath(root, "bin", "*.psgi")) or glob_one(joinpath(root, "script", "*.psgi"))
       end
       local is_dancer = dancer_entry ~= nil
 
+      -- Catalyst: script/*_server.pl
       local catalyst_server = glob_one(joinpath(root, "script", "*_server.pl"))
       local is_catalyst = catalyst_server ~= nil
 
       return {
         root = root,
-
         is_test = is_test_path,
         is_psgi = is_psgi_file,
 
         is_mojo = is_mojo,
-        mojo_app = is_mojo and mojo_app or nil,
+        mojo_app = mojo_app,
 
         is_dancer = is_dancer,
         dancer_entry = dancer_entry,
@@ -241,8 +281,6 @@ return {
 
       -- PSGI / Plack -------------------------------------------------------
       if kind == "psgi" or fb.is_psgi then
-        -- если мы НЕ на явном PSGI-файле, но проект знает entrypoint,
-        -- запускаем entrypoint; иначе запускаем текущий файл.
         local target = file
         if (not fb.is_psgi) and fb.dancer_entry then
           target = fb.dancer_entry
@@ -301,6 +339,7 @@ return {
 
       -- MOJO ---------------------------------------------------------------
       if kind == "mojo" or fb.is_mojo then
+        -- если открыли script/*.pl — morbo текущий файл (как было)
         if file:match("/script/") and file:match("%.pl$") then
           run_overseer({
             name = "morbo: " .. vim.fn.fnamemodify(file, ":t"),
@@ -311,16 +350,30 @@ return {
           return
         end
 
+        -- entrypoint найден:
         if fb.mojo_app then
+          -- если это app.pl -> morbo
+          if fb.mojo_app:match("%.pl$") then
+            run_overseer({
+              name = "morbo: " .. vim.fn.fnamemodify(fb.mojo_app, ":t"),
+              cmd = { "morbo" },
+              args = { fb.mojo_app },
+              cwd = fb.root,
+            })
+            return
+          end
+
+          -- иначе (scaffold script/<app>) — запускаем напрямую
           run_overseer({
-            name = "morbo: " .. vim.fn.fnamemodify(fb.mojo_app, ":t"),
-            cmd = { "morbo" },
-            args = { fb.mojo_app },
+            name = "mojo: daemon " .. vim.fn.fnamemodify(fb.mojo_app, ":t"),
+            cmd = { fb.mojo_app },
+            args = { "daemon" },
             cwd = fb.root,
           })
           return
         end
 
+        -- последний шанс: morbo текущий файл
         run_overseer({
           name = "morbo: " .. vim.fn.fnamemodify(file, ":t"),
           cmd = { "morbo" },
@@ -331,6 +384,30 @@ return {
       end
 
       -- DEFAULT ------------------------------------------------------------
+      if not is_perl_like(file, bufnr) then
+        if fb.is_mojo and fb.mojo_app then
+          if fb.mojo_app:match("%.pl$") then
+            run_overseer({
+              name = "morbo: " .. vim.fn.fnamemodify(fb.mojo_app, ":t"),
+              cmd = { "morbo" },
+              args = { fb.mojo_app },
+              cwd = fb.root,
+            })
+          else
+            run_overseer({
+              name = "mojo: daemon " .. vim.fn.fnamemodify(fb.mojo_app, ":t"),
+              cmd = { fb.mojo_app },
+              args = { "daemon" },
+              cwd = fb.root,
+            })
+          end
+          return
+        end
+
+        notify(("rr: not a Perl file (%s), nothing to run"):format(vim.fn.fnamemodify(file, ":t")), vim.log.levels.WARN)
+        return
+      end
+
       local is_exec = vim.fn.executable(file) == 1
       local cmdline
       if is_exec then
@@ -343,4 +420,3 @@ return {
   end,
 }
 
--- vim: ts=2 sts=2 sw=2 et
