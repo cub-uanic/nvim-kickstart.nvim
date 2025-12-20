@@ -70,6 +70,7 @@ vim.opt.list = false
 -- tags — опция глобальная (и буферная тоже бывает как local-to-buffer в некоторых сценариях),
 -- но set через vim.opt обычно ок; оставим тут.
 vim.opt.tags = { '.tags~' }
+vim.opt.shada:append 'r.git/'
 
 -- spell (buffer-local)
 vim.opt.spell = false
@@ -168,15 +169,42 @@ vim.filetype.add {
 
 -- Normal mode
 vim.keymap.set('n', '<C-n>', '<C-w>h', { desc = 'Window left' })
-vim.keymap.set('n', '<C-e>', '<C-w>j', { desc = 'Window down' })
-vim.keymap.set('n', '<C-o>', '<C-w>k', { desc = 'Window up' })
+vim.keymap.set('n', '<C-e>', '<C-w>k', { desc = 'Window up' })
+vim.keymap.set('n', '<C-o>', '<C-w>j', { desc = 'Window down' })
 vim.keymap.set('n', '<C-i>', '<C-w>l', { desc = 'Window right' })
 
 -- Terminal mode (works with toggleterm.nvim and any :terminal)
 vim.keymap.set('t', '<C-n>', [[<C-\><C-n><C-w>h]], { desc = 'Terminal window left' })
-vim.keymap.set('t', '<C-e>', [[<C-\><C-n><C-w>j]], { desc = 'Terminal window down' })
-vim.keymap.set('t', '<C-o>', [[<C-\><C-n><C-w>k]], { desc = 'Terminal window up' })
+vim.keymap.set('t', '<C-e>', [[<C-\><C-n><C-w>k]], { desc = 'Terminal window up' })
+vim.keymap.set('t', '<C-o>', [[<C-\><C-n><C-w>j]], { desc = 'Terminal window down' })
 vim.keymap.set('t', '<C-i>', [[<C-\><C-n><C-w>l]], { desc = 'Terminal window right' })
+
+-- ============================================================================
+-- Resize windows (useful for terminal splits)
+-- ============================================================================
+
+vim.keymap.set('n', '<C-u>', '<C-w>+', { desc = 'Increase window height' })
+vim.keymap.set('n', '<C-p>', '<C-w>-', { desc = 'Decrease window height' })
+
+vim.keymap.set('n', '<C-f>', '<C-w><', { desc = 'Decrease window width' })
+vim.keymap.set('n', '<C-;>', '<C-w>>', { desc = 'Increase window width' })
+
+-- ============================================================================
+-- Terminal key passthrough (Tab, F-keys)
+-- ============================================================================
+vim.api.nvim_create_autocmd('TermOpen', {
+  callback = function()
+    local opts = { buffer = 0, silent = true }
+
+    -- Tab → shell completion
+    vim.keymap.set('t', '<Tab>', [[<Tab>]], opts)
+
+    -- Function keys → shell (F1–F36)
+    for i = 1, 36 do
+      vim.keymap.set('t', '<F' .. i .. '>', '<F' .. i .. '>', opts)
+    end
+  end,
+})
 
 -- ----------------------------------------------------------------------------
 -- Helpers (без feedkeys/input): только “чистые” vim.cmd / vim.cmd.normal
@@ -481,12 +509,48 @@ local function map_multi(modes, keys, action, desc)
   end
 end
 
--- ========== F1..F12 ==========
+-- ============================================================================
+-- F1: toggle :only with proper restore via temporary session
+-- (winrestcmd() restores sizes, not layout; session restores layout)
+-- ============================================================================
+do
+  local only_session = nil
 
--- ORIGINAL (.vimrc): nmap/imap <F1> :only
-map({ 'n', 'i' }, '<F1>', function()
-  ex_anywhere 'only'
-end, 'Оставить только текущее окно')
+  local function toggle_only_restore()
+    local wins = vim.fn.winnr '$'
+
+    if wins > 1 then
+      -- Save session (layout) and collapse to one window
+      only_session = vim.fn.stdpath 'state' .. '/only-toggle.vim'
+
+      -- Ensure session can restore terminal splits too
+      local so = vim.o.sessionoptions
+      if not so:match 'terminal' then
+        vim.o.sessionoptions = so .. ',terminal'
+      end
+
+      -- Write session for current state
+      vim.cmd('silent! mksession! ' .. vim.fn.fnameescape(only_session))
+
+      -- Restore user's sessionoptions back (keep config clean)
+      vim.o.sessionoptions = so
+
+      -- Collapse
+      ex_anywhere 'only'
+      return
+    end
+
+    -- wins == 1: restore layout from saved session
+    if only_session and vim.fn.filereadable(only_session) == 1 then
+      vim.cmd('silent! source ' .. vim.fn.fnameescape(only_session))
+      vim.fn.delete(only_session)
+      only_session = nil
+    end
+  end
+
+  -- ORIGINAL (.vimrc): nmap/imap <F1> :only
+  map({ 'n', 'i' }, '<F1>', toggle_only_restore, 'Only / restore window layout')
+end
 
 -- ORIGINAL (.vimrc): nmap/imap <S-F1> :copen
 map_multi({ 'n', 'i' }, { '<S-F1>', '<F13>' }, function()
@@ -564,7 +628,10 @@ end, 'Tags (ctags) (Telescope)')
 map({ 'n', 'i' }, '<F5>', function()
   local b = t_builtin()
   if b then
-    b.find_files()
+    b.oldfiles {
+      cwd_only = true,
+      previewer = false,
+    }
   end
 end, 'Buffers (Telescope)')
 
