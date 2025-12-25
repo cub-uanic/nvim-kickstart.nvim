@@ -186,8 +186,11 @@ vim.keymap.set('t', '<C-i>', [[<C-\><C-n><C-w>l]], { desc = 'Terminal window rig
 vim.keymap.set('n', '<C-u>', '<C-w>+', { desc = 'Increase window height' })
 vim.keymap.set('n', '<C-p>', '<C-w>-', { desc = 'Decrease window height' })
 
-vim.keymap.set('n', '<C-f>', '<C-w><', { desc = 'Decrease window width' })
-vim.keymap.set('n', '<C-;>', '<C-w>>', { desc = 'Increase window width' })
+vim.keymap.set('n', '<C-S-e>', '<C-w>+', { desc = 'Increase window height' })
+vim.keymap.set('n', '<C-S-o>', '<C-w>-', { desc = 'Decrease window height' })
+
+vim.keymap.set('n', '<C-S-n>', '<C-w><', { desc = 'Decrease window width' })
+vim.keymap.set('n', '<C-S-i>', '<C-w>>', { desc = 'Increase window width' })
 
 -- ============================================================================
 -- Terminal key passthrough (Tab, F-keys)
@@ -382,6 +385,7 @@ local function gf_or_tag()
   local cfile = vim.fn.expand '<cfile>'
   if cfile ~= '' and vim.fn.filereadable(cfile) == 1 then
     vim.cmd.normal { 'gf', bang = true }
+    -- vim.cmd.edit(cfile)
     return
   end
 
@@ -881,6 +885,27 @@ map({ 'n', 'i' }, '<C-*>', function()
     vim.lsp.buf.definition()
   end
 end, 'Tag with cursor word (Telescope/LSP)')
+
+vim.keymap.set('n', '<leader>gs', function()
+  local b = t_builtin()
+  if b then
+    b.grep_string()
+  end
+end, { desc = 'grep word under cursor' })
+
+vim.keymap.set('v', '<leader>gs', function()
+  local b = t_builtin()
+  if b then
+    b.grep_string { search = vim.fn.getreg '/' }
+  end
+end, { desc = 'grep visual selection' })
+
+vim.keymap.set('n', '<leader>gl', function()
+  local b = t_builtin()
+  if b then
+    b.live_grep { default_text = vim.fn.expand '<cword>' }
+  end
+end, { desc = 'live_grep current word' })
 
 -- TagBack/GFOrTag
 -- ORIGINAL (.vimrc): nmap <BS> :call TagBack_or_Alternate()
