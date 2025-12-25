@@ -36,6 +36,9 @@ vim.g.sql_complete_dbext = 0
 vim.opt.backupdir = { vim.fn.expand '~/tmp' }
 vim.opt.directory = { vim.fn.expand '~/tmp' }
 
+vim.o.exrc = true
+vim.o.secure = true
+
 vim.opt.modeline = true
 vim.opt.modelines = 5
 vim.opt.updatetime = 1500
