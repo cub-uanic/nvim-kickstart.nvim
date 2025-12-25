@@ -877,28 +877,13 @@ map({ 'n', 'i' }, '<C-*>', function()
   if vim.fn.mode():match '^i' then
     vim.cmd 'stopinsert'
   end
-  local w = vim.fn.expand '<cword>'
   local b = t_builtin()
   if b then
-    b.tags { default_text = w }
+    b.tags { default_text = vim.fn.expand '<cword>' }
   else
     vim.lsp.buf.definition()
   end
 end, 'Tag with cursor word (Telescope/LSP)')
-
-vim.keymap.set('n', '<leader>gs', function()
-  local b = t_builtin()
-  if b then
-    b.grep_string()
-  end
-end, { desc = 'grep word under cursor' })
-
-vim.keymap.set('v', '<leader>gs', function()
-  local b = t_builtin()
-  if b then
-    b.grep_string { search = vim.fn.getreg '/' }
-  end
-end, { desc = 'grep visual selection' })
 
 vim.keymap.set('n', '<leader>gl', function()
   local b = t_builtin()
@@ -906,6 +891,13 @@ vim.keymap.set('n', '<leader>gl', function()
     b.live_grep { default_text = vim.fn.expand '<cword>' }
   end
 end, { desc = 'live_grep current word' })
+
+vim.keymap.set('v', '<leader>sw', function()
+  local b = t_builtin()
+  if b then
+    b.grep_string { search = vim.fn.getreg '/' }
+  end
+end, { desc = 'grep visual selection' })
 
 -- TagBack/GFOrTag
 -- ORIGINAL (.vimrc): nmap <BS> :call TagBack_or_Alternate()
