@@ -84,9 +84,9 @@ vim.opt.spellfile = vim.fn.expand '~/.vim/spell/local.utf-8.add'
 -- Buffer defaults (как “глобально” в vimrc, но правильно для nvim)
 -- Применяем только к обычным файловым буферам
 -- ============================================================================
-local aug = vim.api.nvim_create_augroup('cub_buffer_defaults', { clear = true })
+local cbd = vim.api.nvim_create_augroup('cub_buffer_defaults', { clear = true })
 vim.api.nvim_create_autocmd({ 'BufNewFile', 'BufReadPost' }, {
-  group = aug,
+  group = cbd,
   callback = function()
     -- не трогаем special буферы: lazy, help, telescope, terminal и т.п.
     if vim.bo.buftype ~= '' then
@@ -274,9 +274,26 @@ local function ensure_parent_dir_for_current_buffer()
   return true
 end
 
+local function is_telescope_active()
+  for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+    if vim.api.nvim_buf_is_loaded(buf) then
+      local buf_type = vim.api.nvim_get_option_value('buftype', { buf = buf })
+      local buf_name = vim.api.nvim_buf_get_name(buf)
+      if buf_type == 'prompt' or buf_name:match 'Telescope' then
+        return true
+      end
+    end
+  end
+  return false
+end
+
 -- Выполнить Ex-команду и в Insert тоже:
 -- Мы сознательно не сохраняем Insert-mode (это требовало бы feedkeys).
 local function ex_anywhere(cmd)
+  if is_telescope_active() then
+    vim.api.nvim_win_close(0, true)
+  end
+
   local lower = cmd:lower()
   if lower == 'w' or lower == 'write' or lower:match '^w%s' or lower:match '^write%s' then
     if not ensure_parent_dir_for_current_buffer() then
@@ -287,6 +304,7 @@ local function ex_anywhere(cmd)
   if vim.fn.mode():match '^i' then
     vim.cmd 'stopinsert'
   end
+
   vim.cmd(cmd)
 end
 
@@ -402,10 +420,10 @@ vim.api.nvim_create_user_command('TagBackOrAlternate', tagback_or_alternate, {})
 -- ----------------------------------------------------------------------------
 -- Autocmds (из MyBufEnter + Syntax *)
 -- ----------------------------------------------------------------------------
-local aug = vim.api.nvim_create_augroup('cub_vimrc_migrated', { clear = true })
+local cvm = vim.api.nvim_create_augroup('cub_vimrc_migrated', { clear = true })
 
 vim.api.nvim_create_autocmd({ 'BufEnter', 'FileType' }, {
-  group = aug,
+  group = cvm,
   callback = function()
     local ft = vim.bo.filetype
     if ft == 'perl' then
@@ -429,14 +447,14 @@ vim.api.nvim_create_autocmd({ 'BufEnter', 'FileType' }, {
 })
 
 vim.api.nvim_create_autocmd('Syntax', {
-  group = aug,
+  group = cvm,
   callback = function()
     add_tab_spaces_syntax()
   end,
 })
 
 vim.api.nvim_create_autocmd('BufWritePost', {
-  group = aug,
+  group = cvm,
   callback = function()
     update_tags()
   end,
@@ -447,7 +465,7 @@ vim.api.nvim_create_autocmd('BufWritePost', {
 --   map <buffer> [[ ?\(sub\s.*\)\@<={<CR>
 --   map <buffer> ]] ?\(^\s*\)\@<=};*$<CR>
 vim.api.nvim_create_autocmd('FileType', {
-  group = aug,
+  group = cvm,
   pattern = 'perl',
   callback = function()
     vim.keymap.set('n', '[[', [[?\(sub\s.*\)\@<={<CR>]], { buffer = true, silent = true, desc = 'Perl: prev sub' })
@@ -759,7 +777,7 @@ end, 'Format + save + buffers')
 -- ORIGINAL (.vimrc): nmap/imap <F10> :qa
 map({ 'n', 'i' }, '<F10>', function()
   ex_anywhere 'qa'
-end, 'Выйти')
+end, 'Выйти', { noremap = true })
 
 -- ORIGINAL (.vimrc): nmap/imap <S-F10> :wqa
 map_multi({ 'n', 'i' }, { '<S-F10>', '<F22>' }, function()
