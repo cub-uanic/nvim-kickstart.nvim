@@ -902,6 +902,15 @@ vim.keymap.set('v', '<leader>sw', function()
   end
 end, { desc = 'grep visual selection' })
 
+vim.keymap.set('n', '<leader>et', function()
+  local trust_file = vim.fn.stdpath 'state' .. '/trust'
+  if vim.fn.filereadable(trust_file) == 0 then
+    vim.notify('Trust file not found: ' .. trust_file, vim.log.levels.WARN)
+    return
+  end
+  vim.cmd('edit ' .. vim.fn.fnameescape(trust_file))
+end, { desc = 'Edit trust database' })
+
 -- TagBack/GFOrTag
 -- ORIGINAL (.vimrc): nmap <BS> :call TagBack_or_Alternate()
 map('n', '<BS>', tagback_or_alternate, 'Tag back / alternate')
