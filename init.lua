@@ -114,8 +114,23 @@ vim.o.showmode = false
 --  Schedule the setting after `UiEnter` because it can increase startup-time.
 --  Remove this option if you want your OS clipboard to remain independent.
 --  See `:help 'clipboard'`
+-- vim.schedule(function()
+--   vim.o.clipboard = 'unnamedplus'
+-- end)
+
 vim.schedule(function()
-  vim.o.clipboard = 'unnamedplus'
+  -- Отключить автокопирование в системный буфер
+  -- set clipboard=
+  vim.o.clipboard = ''
+  -- Нормальный режим: <leader>y — отправить последний yank/delete в системный буфер
+  -- nnoremap <leader>y  :let @+ = @"<CR>
+  vim.keymap.set('n', '<leader>y', function()
+    vim.fn.setreg('+', vim.fn.getreg '"')
+  end, { desc = 'Send last yank/delete to system clipboard' })
+
+  -- Нормальный режим: <leader>Y + движение -> в системный буфер
+  -- Визуальный режим: <leader>Y -> выделение в системный буфер
+  vim.keymap.set({ 'n', 'v' }, '<leader>Y', '"+y', { noremap = true, silent = true })
 end)
 
 -- Enable break indent
@@ -476,7 +491,7 @@ require('lazy').setup({
       vim.keymap.set('n', '<leader>sd', builtin.diagnostics, { desc = '[S]earch [D]iagnostics' })
       vim.keymap.set('n', '<leader>sr', builtin.resume, { desc = '[S]earch [R]esume' })
       vim.keymap.set('n', '<leader>s.', builtin.oldfiles, { desc = '[S]earch Recent Files ("." for repeat)' })
-      vim.keymap.set('n', '<leader>sb', builtin.buffers, { desc = '[ ] Find existing buffers' })
+      vim.keymap.set('n', '<leader>sb', builtin.buffers, { desc = '[S]earch existing [b]uffers' })
       vim.keymap.set('n', '<leader><leader>', builtin.live_grep, { desc = '[S]earch by [G]rep' })
 
       -- Slightly advanced example of overriding default behavior and theme

@@ -854,43 +854,56 @@ end, 'File tree toggle (neo-tree/oil/Ex)')
 -- В Vim “встроенной Lua-функции yank в регистр” нет: yank — это оператор, поэтому
 -- самый естественный способ — normal-команды с префиксом регистра.
 -- Мы делаем это через vim.cmd.normal() (без feedkeys).
+-- workman-based -> Y/K works with reg J, N/L with reg F
 -- ORIGINAL (.vimrc): nmap/vmap/imap <C-Y> "fy
 map('n', '<C-Y>', function()
-  vim.cmd.normal { [["fy]], bang = true }
-end, 'Yank -> регистр "f"')
+  vim.cmd.normal { [["jy]], bang = true }
+end, 'Yank -> регистр "j"')
 map('v', '<C-Y>', function()
-  vim.cmd.normal { [["fy]], bang = true }
-end, 'Yank -> регистр "f" (visual)')
+  vim.cmd.normal { [["jy]], bang = true }
+end, 'Yank -> регистр "j" (visual)')
 map('i', '<C-Y>', function()
-  normal_anywhere([["fy]], true)
-end, 'Yank -> регистр "f" (insert)')
+  normal_anywhere([["jy]], true)
+end, 'Yank -> регистр "j" (insert)')
 
 -- ORIGINAL (.vimrc): nmap/imap <C-K> "fP
 map('n', '<C-K>', function()
-  vim.cmd.normal { [["fP]], bang = true }
-end, 'Paste(before) из регистра "f"')
+  if vim.fn.getreg 'j' == '' then
+    return
+  end
+  vim.cmd.normal { [["jP]], bang = true }
+end, 'Paste(before) из регистра "j"')
 map('i', '<C-K>', function()
-  normal_anywhere([["fP]], true)
-end, 'Paste(before) из регистра "f" (insert)')
+  if vim.fn.getreg 'j' == '' then
+    return
+  end
+  normal_anywhere([["jP]], true)
+end, 'Paste(before) из регистра "j" (insert)')
 
 -- ORIGINAL (.vimrc): nmap/vmap/imap <C-N> "uy
 map('n', '<C-N>', function()
-  vim.cmd.normal { [["uy]], bang = true }
-end, 'Yank -> регистр "u"')
+  vim.cmd.normal { [["fy]], bang = true }
+end, 'Yank -> регистр "f"')
 map('v', '<C-N>', function()
-  vim.cmd.normal { [["uy]], bang = true }
-end, 'Yank -> регистр "u" (visual)')
+  vim.cmd.normal { [["fy]], bang = true }
+end, 'Yank -> регистр "f" (visual)')
 map('i', '<C-N>', function()
-  normal_anywhere([["uy]], true)
-end, 'Yank -> регистр "u" (insert)')
+  normal_anywhere([["fy]], true)
+end, 'Yank -> регистр "f" (insert)')
 
 -- ORIGINAL (.vimrc): nmap/imap <C-L> "uP
 map('n', '<C-L>', function()
-  vim.cmd.normal { [["uP]], bang = true }
-end, 'Paste(before) из регистра "u"')
+  if vim.fn.getreg 'f' == '' then
+    return
+  end
+  vim.cmd.normal { [["fP]], bang = true }
+end, 'Paste(before) из регистра "f"')
 map('i', '<C-L>', function()
-  normal_anywhere([["uP]], true)
-end, 'Paste(before) из регистра "u" (insert)')
+  if vim.fn.getreg 'f' == '' then
+    return
+  end
+  normal_anywhere([["fP]], true)
+end, 'Paste(before) из регистра "f" (insert)')
 
 -- C-* : FufTagWithCursorWord (плагина нет) -> Telescope tags с подстановкой слова или LSP def
 -- ORIGINAL (.vimrc): nmap/imap <C-*> :FufTagWithCursorWord
@@ -998,7 +1011,7 @@ map('v', '<S-Tab>', '<gv', 'Indent: блок влево (S-Tab)')
 -- ORIGINAL (.vimrc): nnoremap "" :registers "0123456789abcdefghijklmnopqrstuvwxyz*+.<CR>
 map('n', [[""]], function()
   vim.cmd [[registers "0123456789abcdefghijklmnopqrstuvwxyz*+.]]
-end, 'Показать регистры ("" )')
+end, 'Показать регистры')
 
 -- Русская “№” -> “#”
 -- ORIGINAL (.vimrc): imap № #
