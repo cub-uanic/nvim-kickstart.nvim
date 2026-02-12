@@ -369,7 +369,60 @@ end
 local function tagback_or_alternate()
   local ok = pcall(vim.cmd, 'pop')
   if not ok then
-    vim.cmd 'silent normal! :e#<CR>'
+    local alt_bufnr = vim.fn.bufnr '#'
+    if alt_bufnr > 0 and vim.api.nvim_buf_is_loaded(alt_bufnr) then
+      vim.cmd 'buffer #'
+    else
+      vim.notify('No tag stack and no alternate buffer', vim.log.levels.WARN)
+    end
+  end
+end
+
+-- storage for last cursor positions per buffer
+local last_positions = {}
+
+-- save cursor position when leaving any buffer
+vim.api.nvim_create_autocmd('BufLeave', {
+  callback = function(args)
+    local bufnr = args.buf
+    if vim.api.nvim_buf_is_loaded(bufnr) then
+      last_positions[bufnr] = vim.api.nvim_win_get_cursor(0)
+    end
+  end,
+})
+
+-- restore position if we have it saved
+local function restore_position(bufnr)
+  local pos = last_positions[bufnr]
+  if not pos then
+    return
+  end
+
+  local line_count = vim.api.nvim_buf_line_count(bufnr)
+  if pos[1] <= line_count then
+    vim.api.nvim_win_set_cursor(0, pos)
+  end
+end
+
+-- LSP jump wrapper with deterministic restore
+local function jump_with_restore(loc)
+  local uri = loc.uri or loc.targetUri
+  if not uri then
+    return
+  end
+
+  local bufnr = vim.uri_to_bufnr(uri)
+  local already_loaded = vim.api.nvim_buf_is_loaded(bufnr)
+
+  -- open via new LSP API (no deprecated jump_to_location)
+  vim.lsp.util.show_document(loc, 'utf-8', { focus = true })
+
+  -- if buffer already existed, BufReadPost will NOT fire
+  -- so we restore manually
+  if already_loaded then
+    vim.schedule(function()
+      restore_position(bufnr)
+    end)
   end
 end
 
@@ -377,40 +430,32 @@ local function gf_or_tag()
   -- LSP definition -> gf -> tag
   local params = vim.lsp.util.make_position_params(0, 'utf-8')
 
-  local has_def = false
-  for _, c in ipairs(vim.lsp.get_clients { bufnr = 0 }) do
-    if c.supports_method and c:supports_method 'textDocument/definition' then
-      has_def = true
-      break
-    end
-  end
+  -- check LSP support
+  for _, client in ipairs(vim.lsp.get_clients { bufnr = 0 }) do
+    if client.supports_method and client:supports_method 'textDocument/definition' then
+      local resp = vim.lsp.buf_request_sync(0, 'textDocument/definition', params, 1000)
 
-  if has_def then
-    local resp = vim.lsp.buf_request_sync(0, 'textDocument/definition', params, 250)
-    local found = false
-    if resp then
-      for _, r in pairs(resp) do
-        local res = r.result
-        if res and ((type(res) == 'table' and #res > 0) or (type(res) == 'table' and res.uri)) then
-          found = true
-          break
+      if resp then
+        for _, r in pairs(resp) do
+          local result = r.result
+          if result and not vim.tbl_isempty(result) then
+            local loc = result[1] or result
+            jump_with_restore(loc)
+            return
+          end
         end
       end
     end
-    if found then
-      vim.lsp.buf.definition()
-      return
-    end
   end
 
-  local cfile = vim.fn.expand '<cfile>'
-  if cfile ~= '' and vim.fn.filereadable(cfile) == 1 then
-    vim.cmd.normal { 'gf', bang = true }
-    -- vim.cmd.edit(cfile)
+  -- gf fallback (let vim resolve path/suffixesadd)
+  if vim.fn.expand '<cfile>' ~= '' then
+    vim.cmd 'normal! gf'
     return
   end
 
-  vim.cmd.normal { '<C-]>', bang = true }
+  -- tag fallback
+  vim.cmd 'normal! <C-]>'
 end
 
 vim.api.nvim_create_user_command('UpdateTags', update_tags, {})
